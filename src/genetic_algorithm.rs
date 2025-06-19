@@ -202,22 +202,6 @@ impl<'a> GeneticAlgorithm<'a> {
         self.population.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(Ordering::Equal));
     }
     
-    /// Calculates fitness as percentage of matching pixels between ASCII art and target image
-    fn calculate_fitness(&self, individual: &Individual) -> f64 {
-        self.calculate_fitness_for_chars(&individual.chars)
-    }
-    
-    /// Calculates fitness for a given character array
-    fn calculate_fitness_for_chars(&self, chars: &[u8]) -> f64 {
-        Self::calculate_fitness_for_chars_static(
-            chars, 
-            &Arc::new(self.ascii_generator), 
-            &Arc::new(self.target_image.clone()), 
-            self.width, 
-            self.height
-        )
-    }
-    
     /// Static version of fitness calculation for parallel processing
     fn calculate_fitness_for_chars_static(
         chars: &[u8], 
