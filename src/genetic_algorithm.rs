@@ -1,7 +1,9 @@
 use crate::ascii_generator::AsciiGenerator;
 use image::{ImageBuffer, Luma};
 use rand::{Rng, thread_rng};
+use rayon::prelude::*;
 use std::cmp::Ordering;
+use std::sync::Arc;
 
 /// Represents an individual in the genetic algorithm population
 #[derive(Clone, Debug)]
@@ -71,6 +73,7 @@ pub struct GeneticAlgorithm<'a> {
     mutation_rate: f64,
     crossover_rate: f64,
     elite_size: usize,
+    thread_count: usize,
 }
 
 impl<'a> GeneticAlgorithm<'a> {
@@ -81,11 +84,18 @@ impl<'a> GeneticAlgorithm<'a> {
         population_size: usize,
         ascii_generator: &'a AsciiGenerator,
         target_image: &'a ImageBuffer<Luma<u8>, Vec<u8>>,
+        thread_count: usize,
     ) -> Self {
         let individual_size = (width * height) as usize;
         let population: Vec<Individual> = (0..population_size)
             .map(|_| Individual::new_random(individual_size))
             .collect();
+        
+        // Set up thread pool for parallel processing
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(thread_count)
+            .build_global()
+            .expect("Failed to initialize thread pool");
         
         Self {
             population,
@@ -97,6 +107,7 @@ impl<'a> GeneticAlgorithm<'a> {
             mutation_rate: 0.01,
             crossover_rate: 0.8,
             elite_size: population_size / 10, // Top 10% are elite
+            thread_count,
         }
     }
     
@@ -119,19 +130,36 @@ impl<'a> GeneticAlgorithm<'a> {
         self.population[0].clone()
     }
     
-    /// Evaluates the fitness of all individuals in the population
+    /// Evaluates the fitness of all individuals in the population using parallel processing
     fn evaluate_population(&mut self) {
-        // Clone chars to avoid borrowing issues
-        let chars_fitness: Vec<(Vec<u8>, f64)> = self.population
+        // Clone chars to avoid borrowing issues and prepare for parallel processing
+        let chars_list: Vec<Vec<u8>> = self.population
             .iter()
-            .map(|individual| {
-                let fitness = self.calculate_fitness_for_chars(&individual.chars);
-                (individual.chars.clone(), fitness)
+            .map(|individual| individual.chars.clone())
+            .collect();
+        
+        // Create Arc references for thread-safe sharing
+        let ascii_gen = Arc::new(self.ascii_generator);
+        let target_img = Arc::new(self.target_image.clone());
+        let width = self.width;
+        let height = self.height;
+        
+        // Calculate fitness in parallel
+        let fitness_values: Vec<f64> = chars_list
+            .par_iter()
+            .map(|chars| {
+                Self::calculate_fitness_for_chars_static(
+                    chars, 
+                    &ascii_gen, 
+                    &target_img, 
+                    width, 
+                    height
+                )
             })
             .collect();
         
         // Update fitness values
-        for (individual, (_, fitness)) in self.population.iter_mut().zip(chars_fitness.iter()) {
+        for (individual, fitness) in self.population.iter_mut().zip(fitness_values.iter()) {
             individual.fitness = *fitness;
         }
         
@@ -146,18 +174,35 @@ impl<'a> GeneticAlgorithm<'a> {
     
     /// Calculates fitness for a given character array
     fn calculate_fitness_for_chars(&self, chars: &[u8]) -> f64 {
-        let ascii_image = self.ascii_generator.generate_ascii_image(chars, self.width, self.height);
+        Self::calculate_fitness_for_chars_static(
+            chars, 
+            &Arc::new(self.ascii_generator), 
+            &Arc::new(self.target_image.clone()), 
+            self.width, 
+            self.height
+        )
+    }
+    
+    /// Static version of fitness calculation for parallel processing
+    fn calculate_fitness_for_chars_static(
+        chars: &[u8], 
+        ascii_generator: &Arc<&AsciiGenerator>, 
+        target_image: &Arc<ImageBuffer<Luma<u8>, Vec<u8>>>, 
+        width: u32, 
+        height: u32
+    ) -> f64 {
+        let ascii_image = ascii_generator.generate_ascii_image(chars, width, height);
         
         let mut matches = 0;
         let mut total = 0;
         
-        let min_width = ascii_image.width().min(self.target_image.width());
-        let min_height = ascii_image.height().min(self.target_image.height());
+        let min_width = ascii_image.width().min(target_image.width());
+        let min_height = ascii_image.height().min(target_image.height());
         
         for y in 0..min_height {
             for x in 0..min_width {
                 let ascii_pixel = ascii_image.get_pixel(x, y)[0];
-                let target_pixel = self.target_image.get_pixel(x, y)[0];
+                let target_pixel = target_image.get_pixel(x, y)[0];
                 
                 // Use a tolerance for pixel matching
                 let diff = (ascii_pixel as i32 - target_pixel as i32).abs();
@@ -282,12 +327,13 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img);
+        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2);
         
         assert_eq!(ga.population.len(), 20);
         assert_eq!(ga.population_size, 20);
         assert_eq!(ga.width, 10);
         assert_eq!(ga.height, 10);
+        assert_eq!(ga.thread_count, 2);
         
         // Check that all individuals have correct size
         for individual in &ga.population {
@@ -300,7 +346,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img);
+        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1);
         let individual = Individual::new(vec![b' ', b' ', b' ', b' ']); // All spaces
         
         let fitness = ga.calculate_fitness(&individual);
@@ -312,7 +358,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img);
+        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1);
         
         // Set different fitness values
         ga.population[0].fitness = 0.9;

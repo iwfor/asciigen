@@ -111,6 +111,7 @@ dependencies = [
  "image",
  "mockall",
  "rand",
+ "rayon",
  "rusttype",
 ]
 

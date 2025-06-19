@@ -22,6 +22,9 @@ struct Args {
     #[arg(short, long, default_value = "100", help = "Number of generations")]
     generations: u32,
     
+    #[arg(short, long, default_value = "4", help = "Number of threads for parallel fitness evaluation")]
+    jobs: usize,
+    
     #[arg(short, long, help = "Output file path (optional)")]
     output: Option<PathBuf>,
 }
@@ -61,6 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         40, // population size
         &ascii_gen,
         &resized_bw,
+        args.jobs,
     );
     
     println!("Running genetic algorithm for {} generations...", args.generations);
