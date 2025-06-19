@@ -39,6 +39,9 @@ struct Args {
     
     #[arg(short = 'W', long, help = "Use white background (default is black background with white characters)")]
     white_background: bool,
+    
+    #[arg(short = 's', long, default_value = "1.0", help = "Status update interval in seconds")]
+    status_interval: f64,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -94,7 +97,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     
     println!("Running genetic algorithm for {} generations...", args.generations);
-    let best_individual = ga.evolve(args.generations, args.verbose);
+    let best_individual = ga.evolve(args.generations, args.verbose, args.status_interval);
     
     // Generate output ASCII image buffer to get its dimensions
     let output_ascii_image = ascii_gen.generate_ascii_image(&best_individual.chars, target_width, target_height);

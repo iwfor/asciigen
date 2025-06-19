@@ -235,18 +235,29 @@ impl<'a> GeneticAlgorithm<'a> {
     }
     
     /// Runs the genetic algorithm for the specified number of generations
-    pub fn evolve(&mut self, generations: u32, verbose: bool) -> Individual {
+    pub fn evolve(&mut self, generations: u32, verbose: bool, status_interval: f64) -> Individual {
+        use std::time::{Duration, Instant};
+        
+        let start_time = Instant::now();
+        let mut last_update = start_time;
+        let update_interval = Duration::from_secs_f64(status_interval);
+        
         for generation in 0..generations {
             self.evaluate_population();
             
-            if generation % 10 == 0 {
+            let now = Instant::now();
+            if now.duration_since(last_update) >= update_interval {
                 let best_fitness = self.population[0].fitness;
-                println!("Generation {}: Best fitness = {:.2}%", generation, best_fitness * 100.0);
+                let elapsed = now.duration_since(start_time).as_secs_f64();
+                println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s)", 
+                         generation, best_fitness * 100.0, elapsed);
                 
                 if verbose {
                     let best_ascii = self.ascii_generator.individual_to_string(&self.population[0], self.width);
                     println!("Current best ASCII art:\n{}\n", best_ascii);
                 }
+                
+                last_update = now;
             }
             
             if generation < generations - 1 {
@@ -255,6 +266,10 @@ impl<'a> GeneticAlgorithm<'a> {
         }
         
         self.evaluate_population();
+        let total_elapsed = Instant::now().duration_since(start_time).as_secs_f64();
+        println!("Final generation {}: Best fitness = {:.2}% (total time: {:.1}s)", 
+                 generations - 1, self.population[0].fitness * 100.0, total_elapsed);
+        
         self.population[0].clone()
     }
     
