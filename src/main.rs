@@ -30,6 +30,9 @@ struct Args {
     
     #[arg(short, long, help = "Output file path (optional)")]
     output: Option<PathBuf>,
+    
+    #[arg(short = 'd', long, help = "Save debug images (converted input and final ASCII art as PNG files)")]
+    debug: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -80,6 +83,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(output_path) = args.output {
         std::fs::write(&output_path, ascii_art)?;
         println!("ASCII art saved to: {:?}", output_path);
+    }
+    
+    // Save debug images if requested
+    if args.debug {
+        // Save converted input image
+        let input_debug_path = format!("debug_input_{}.png", 
+            args.input.file_stem().unwrap_or_default().to_string_lossy());
+        resized_bw.save(&input_debug_path)?;
+        println!("Debug input image saved to: {}", input_debug_path);
+        
+        // Save final ASCII art as image
+        let ascii_image = ascii_gen.generate_ascii_image(&best_individual.chars, target_width, target_height);
+        let ascii_debug_path = format!("debug_ascii_{}.png", 
+            args.input.file_stem().unwrap_or_default().to_string_lossy());
+        ascii_image.save(&ascii_debug_path)?;
+        println!("Debug ASCII image saved to: {}", ascii_debug_path);
     }
     
     Ok(())

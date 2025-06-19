@@ -51,6 +51,11 @@ ASCIIGen is a Rust application that generates ASCII art from images using geneti
    - Random: Completely random ASCII characters
    - Character-based: 95% specified character + 5% random for diversity
 
+5. **Debug Mode**: Optional debug image output for analysis
+   - Saves converted input image as PNG (resized grayscale version)
+   - Saves final ASCII art as rendered PNG image
+   - Files named `debug_input_<filename>.png` and `debug_ascii_<filename>.png`
+
 ## Command Line Interface
 
 ```bash
@@ -66,6 +71,7 @@ Options:
   -j, --jobs <JOBS>                Number of threads [default: 4]
   -i, --init-char <INIT_CHAR>      Initialization character (95% + 5% random)
   -o, --output <OUTPUT>            Output file path (optional)
+  -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
   -h, --help                       Print help
 ```
 
