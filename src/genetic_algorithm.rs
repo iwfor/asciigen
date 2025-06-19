@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 /// Limited character set for ASCII art generation
-const ALLOWED_CHARS: &[u8] = b" <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'\"!@#$%^&*()8";
+const ALLOWED_CHARS: &[u8] = b" <>,./?\\|[]{}-_=+OX`~;:'\"!@#$%^&*()8";
 
 /// Represents an individual in the genetic algorithm population
 #[derive(Clone, Debug)]
@@ -386,7 +386,7 @@ impl<'a> GeneticAlgorithm<'a> {
                     }
                 } else if ascii_is_lit {
                     // Step 11: Penalize when ASCII is lit but target is background
-                    score -= 0.01; // Small penalty for false positive
+                    score -= 0.005; // Small penalty for false positive
                     ascii_false_positive_count += 1;
                 }
             }
