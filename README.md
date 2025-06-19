@@ -14,9 +14,13 @@ This project was mostly generated with Claude Code with Sonnet 4.  Rust was used
 
 - **Genetic Algorithm**: Evolves ASCII art over multiple generations to match source images
 - **Parallel Processing**: Multi-threaded fitness evaluation for improved performance
+- **Smart Initialization**: Uses background probability to create realistic initial populations
+- **Intelligent Fitness**: Non-background pixel focused evaluation with false-positive penalties
 - **Flexible Sizing**: Specify width or height in characters (auto-calculates the other dimension)
 - **High-Quality Rendering**: Uses monospace fonts with proper character spacing
-- **Configurable Evolution**: Adjustable number of generations and thread count
+- **Time-Based Progress**: Configurable status updates at regular time intervals
+- **Debug Mode**: Save processed images and ASCII art renderings for analysis
+- **Background Options**: Support for both black and white background modes
 - **File Output**: Save generated ASCII art to text files
 
 ## Installation
@@ -54,11 +58,11 @@ cargo run -- image.jpg --width 25 --init-char 'o'
 # Generate debug images with white background
 cargo run -- image.jpg --width 15 --debug --white-background
 
-# Verbose mode with real-time progress
-cargo run -- image.jpg --width 20 --verbose --generations 100
+# Verbose mode with real-time progress and custom status interval
+cargo run -- image.jpg --width 20 --verbose --generations 100 --status-interval 0.5
 
 # Full featured run with all options
-cargo run -- image.jpg --width 25 --generations 50 --jobs 8 --init-char '#' --verbose --debug
+cargo run -- image.jpg --width 25 --generations 50 --jobs 8 --init-char '#' --verbose --debug --status-interval 2.0
 ```
 
 ### Command Line Options
@@ -79,6 +83,7 @@ Options:
   -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
   -v, --verbose                    Verbose output: display fittest ASCII art after each progress update
   -W, --white-background           Use white background (default is black background with white characters)
+  -s, --status-interval <SECONDS>  Status update interval in seconds [default: 1.0]
   -h, --help                       Print help
 ```
 
@@ -99,26 +104,38 @@ This limited set provides good visual variety while maintaining readability and 
 ### Debug Mode
 When using the `--debug` flag, ASCIIGen saves two PNG files:
 - `debug_input_<filename>.png`: The processed input image (resized and grayscale)
-- `debug_ascii_<filename>.png`: The final ASCII art rendered as an image with 3x larger characters for readability
+- `debug_ascii_<filename>.png`: The final ASCII art rendered as an image (same size as fitness comparison buffer)
+
+Both debug images are the same dimensions, allowing pixel-perfect comparison of what the genetic algorithm is actually optimizing.
 
 ## How It Works
 
 ### Genetic Algorithm Process
 
-1. **Initialization**: Creates a population of 40 random ASCII art individuals
-2. **Fitness Evaluation**: Compares each ASCII art against the target image pixel-by-pixel
+1. **Smart Initialization**: Creates a population of 40 ASCII art individuals using background probability
+   - Calculates percentage of background pixels in target image
+   - Uses this probability to place spaces vs characters during initialization
+2. **Intelligent Fitness Evaluation**: Focuses on meaningful pixels rather than background
+   - Only evaluates non-background pixels from the target image
+   - Awards points for matching pixels within tolerance
+   - Penalizes false positives (ASCII characters where target is background)
 3. **Selection**: Uses tournament selection to choose parents for reproduction
 4. **Crossover**: Performs uniform crossover between parent individuals
-5. **Mutation**: Randomly mutates characters with a small probability
+5. **Background-Aware Mutation**: Maintains realistic character distribution
+   - Uses same background probability as initialization
+   - Preserves sparse character placement throughout evolution
 6. **Elitism**: Preserves the top 10% of individuals across generations
+7. **Time-Based Progress**: Updates status at configurable time intervals
 
 ### Technical Implementation
 
 - **Image Processing**: Loads, resizes, and converts images to grayscale with proper dimension matching
-- **Font Rendering**: Renders ASCII characters using TrueType fonts with proper baseline alignment
-- **Parallel Fitness**: Uses Rayon for concurrent fitness evaluations
+- **Font Rendering**: Renders ASCII characters using TrueType fonts with proper baseline alignment  
+- **Parallel Fitness**: Uses Rayon for concurrent fitness evaluations across multiple threads
 - **Character Set**: Uses optimized 46-character set for better ASCII art quality
-- **Fitness Function**: Pixel matching with tolerance for better convergence
+- **Smart Fitness Function**: Non-background pixel focused evaluation with false-positive penalties
+- **Background Probability**: Pre-calculated statistics guide initialization and mutation
+- **Time-Based Updates**: Configurable status intervals (default 1.0 seconds) with elapsed time tracking
 - **Debug Mode**: Saves processed input and final ASCII art as PNG images for analysis
 - **Background Options**: Supports both white-on-black (default) and black-on-white rendering
 
@@ -151,11 +168,15 @@ jp{S=_E@[x8rksuF@uEL
 l3F8aS%e:~QUj6W{KU12
 ```
 
-### Fitness Evolution
+### Fitness Evolution with Time-Based Progress
 ```
-Generation 0: Best fitness = 77.00%
-Generation 10: Best fitness = 78.50%
-Generation 20: Best fitness = 79.20%
+Background threshold: 50, Total non-background pixels: 1218, Background probability: 94.2%
+Running genetic algorithm for 100 generations...
+Generation 20: Best fitness = 2.91% (elapsed: 0.5s)
+Generation 41: Best fitness = 4.60% (elapsed: 1.0s)
+Generation 62: Best fitness = 4.65% (elapsed: 1.5s)
+Generation 83: Best fitness = 5.98% (elapsed: 2.0s)
+Final generation 99: Best fitness = 7.00% (total time: 2.4s)
 ```
 
 ## Dependencies
@@ -215,13 +236,30 @@ cargo build --release
 - **Selection**: Tournament selection (size 3)
 
 ### Fitness Function
-The fitness function calculates the percentage of pixels that match between the generated ASCII art and the target image:
+The intelligent fitness function focuses on meaningful pixels rather than background:
 
 ```rust
-fitness = matching_pixels / total_pixels
+// Only evaluate non-background pixels
+for target_lit_pixel in non_background_pixels {
+    if ascii_pixel matches target_pixel (within tolerance) {
+        score += 1.0
+    }
+}
+
+// Penalize false positives
+for background_pixel in background_pixels {
+    if ascii_pixel is lit {
+        score -= penalty
+    }
+}
+
+fitness = score / total_non_background_pixels
 ```
 
-With a tolerance of 30 out of 255 for pixel intensity differences to allow for minor variations.
+This approach:
+- Only counts pixels that matter (foreground content)
+- Penalizes ASCII characters appearing where they shouldn't
+- Provides realistic fitness scores that reflect actual image similarity
 
 ## Contributing
 

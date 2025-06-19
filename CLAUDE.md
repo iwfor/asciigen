@@ -43,31 +43,48 @@ ASCIIGen is a Rust application that generates ASCII art from images using geneti
    - Font file must be placed in `assets/DejaVuSansMono.ttf`
    - Characters are pre-rendered and cached for performance
 
-3. **Fitness Function**: Pixel-by-pixel comparison with tolerance
+3. **Smart Fitness Function**: Non-background pixel focused evaluation
+   - Pre-calculates non-background pixel count from target image
+   - Only evaluates meaningful pixels (foreground content)
+   - Penalizes false positives (ASCII characters where target is background)
    - Tolerance of 30/255 for pixel intensity differences
-   - Returns percentage match (0.0 to 1.0)
+   - Returns realistic fitness scores that reflect actual image similarity
 
-4. **Initialization Options**: Support for both random and character-based initialization
-   - Random: Completely random ASCII characters
+4. **Intelligent Initialization**: Background probability-based population creation
+   - Calculates percentage of background pixels in target image
+   - Uses this probability to place spaces vs characters during initialization
+   - Creates realistic starting populations that match target image structure
+
+5. **Background-Aware Mutation**: Maintains realistic character distribution
+   - Uses same background probability as initialization during mutation
+   - Preserves sparse character placement throughout evolution
+
+6. **Initialization Options**: Support for both random and character-based initialization
+   - Random: Uses background probability for realistic distribution
    - Character-based: 95% specified character + 5% random for diversity
 
-5. **Debug Mode**: Optional debug image output for analysis
+7. **Time-Based Progress**: Configurable status update intervals
+   - Default 1.0 second intervals with elapsed time tracking
+   - Replaces fixed generation-based updates for consistent user feedback
+
+8. **Debug Mode**: Optional debug image output for analysis
    - Saves converted input image as PNG (resized grayscale version)
-   - Saves final ASCII art as rendered PNG image with 3x larger characters for readability
+   - Saves final ASCII art as rendered PNG image (same size as fitness comparison buffer)
    - Files named `debug_input_<filename>.png` and `debug_ascii_<filename>.png`
+   - Both images are identical dimensions for pixel-perfect comparison
    - Supports both black and white background modes
 
-6. **Verbose Mode**: Real-time evolution progress display
-   - Shows current best ASCII art every 10 generations
+9. **Verbose Mode**: Real-time evolution progress display
+   - Shows current best ASCII art at each status update interval
    - Helps monitor genetic algorithm convergence
    - Useful for tuning parameters and understanding evolution progress
 
-7. **Limited Character Set**: Optimized character palette for ASCII art
-   - Uses curated set: ` <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'"!@#$%^&*()8`
-   - Provides good visual variety while maintaining readability
-   - Avoids problematic characters that don't render well
+10. **Limited Character Set**: Optimized character palette for ASCII art
+    - Uses curated set: ` <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'"!@#$%^&*()8`
+    - Provides good visual variety while maintaining readability
+    - Avoids problematic characters that don't render well
 
-8. **Background Color Options**: Flexible output formatting
+11. **Background Color Options**: Flexible output formatting
    - Default: White characters on black background (terminal-friendly)
    - White background mode: Black characters on white background (print-friendly)
    - Proper color inversion for cached character images
@@ -90,6 +107,7 @@ Options:
   -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
   -v, --verbose                    Verbose output: display fittest ASCII art after each progress update
   -W, --white-background           Use white background (default is black background with white characters)
+  -s, --status-interval <SECONDS>  Status update interval in seconds [default: 1.0]
   -h, --help                       Print help
 ```
 
@@ -97,6 +115,7 @@ Options:
 - Must specify either width OR height (not both)
 - Initialization character must be from the allowed character set
 - Thread count should be reasonable (1-16 typically)
+- Status interval can be fractional seconds (e.g., 0.5, 2.5)
 - Debug and verbose modes can be used together for comprehensive analysis
 
 ## Dependencies
@@ -275,22 +294,37 @@ Each feature was implemented with full testing and maintains backward compatibil
 
 ### Recent Enhancements
 
+#### Smart Fitness Function (Major Improvement)
+- Replaced simple pixel matching with intelligent non-background pixel evaluation
+- Pre-calculates non-background pixels in target image for focused scoring
+- Penalizes false positives (ASCII characters where target is background)
+- Provides realistic fitness scores that reflect actual image similarity
+- Eliminates unrealistically high scores from background pixel matching
+
+#### Background Probability-Based Evolution
+- Calculates background/foreground ratio from target image during initialization
+- Uses this probability for realistic character distribution in initial population
+- Applies same probability during mutation to maintain character balance
+- Results in dramatically improved convergence and ASCII art quality
+
+#### Time-Based Progress Updates
+- Replaced fixed 10-generation intervals with configurable time-based updates
+- Default 1.0 second intervals with fractional second support (e.g., 0.5s, 2.5s)
+- Shows elapsed time and total runtime for better performance tracking
+- Provides consistent user feedback regardless of hardware speed
+
+#### Debug Image Improvements
+- Debug ASCII images now match fitness comparison buffer dimensions exactly
+- Enables pixel-perfect comparison between target and ASCII images
+- Fixed character rendering to use proper baseline alignment
+- Both debug images are identical size for accurate analysis
+
 #### Character Set Optimization
 - Replaced full ASCII range with curated 46-character set
 - Improved visual quality and readability of generated ASCII art
 - Maintained compatibility with existing initialization and mutation logic
 
-#### Debug and Verbose Modes
-- Debug mode saves input processing and final ASCII art as PNG images
-- Verbose mode displays evolution progress with intermediate results
-- Both modes aid in parameter tuning and algorithm understanding
-
 #### Background Color System
 - Default: White characters on black background (terminal display)
 - Optional: Black characters on white background (printing/documents)
 - Proper color inversion maintains character readability in both modes
-
-#### Image Buffer Fixes
-- Corrected target image sizing to match ASCII character dimensions
-- Fixed character baseline alignment in debug images
-- Improved character rendering positioning and clarity
