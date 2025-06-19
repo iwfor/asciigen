@@ -102,6 +102,7 @@ pub struct GeneticAlgorithm<'a> {
     mutation_rate: f64,
     crossover_rate: f64,
     elite_size: usize,
+    #[cfg(test)]
     thread_count: usize,
 }
 
@@ -149,6 +150,7 @@ impl<'a> GeneticAlgorithm<'a> {
             mutation_rate: 0.01,
             crossover_rate: 0.8,
             elite_size: population_size / 10, // Top 10% are elite
+            #[cfg(test)]
             thread_count,
         }
     }
@@ -210,11 +212,13 @@ impl<'a> GeneticAlgorithm<'a> {
     }
     
     /// Calculates fitness as percentage of matching pixels between ASCII art and target image
+    #[cfg(test)]
     fn calculate_fitness(&self, individual: &Individual) -> f64 {
         self.calculate_fitness_for_chars(&individual.chars)
     }
     
     /// Calculates fitness for a given character array
+    #[cfg(test)]
     fn calculate_fitness_for_chars(&self, chars: &[u8]) -> f64 {
         Self::calculate_fitness_for_chars_static(
             chars, 

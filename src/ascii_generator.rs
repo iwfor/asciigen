@@ -141,6 +141,7 @@ impl AsciiGenerator {
     }
     
     /// Returns the dimensions of a single character in pixels
+    #[cfg(test)]
     pub fn char_dimensions(&self) -> (u32, u32) {
         (self.char_width, self.char_height)
     }
