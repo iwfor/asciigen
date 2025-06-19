@@ -156,13 +156,18 @@ impl<'a> GeneticAlgorithm<'a> {
     }
     
     /// Runs the genetic algorithm for the specified number of generations
-    pub fn evolve(&mut self, generations: u32) -> Individual {
+    pub fn evolve(&mut self, generations: u32, verbose: bool) -> Individual {
         for generation in 0..generations {
             self.evaluate_population();
             
             if generation % 10 == 0 {
                 let best_fitness = self.population[0].fitness;
                 println!("Generation {}: Best fitness = {:.2}%", generation, best_fitness * 100.0);
+                
+                if verbose {
+                    let best_ascii = self.ascii_generator.individual_to_string(&self.population[0], self.width);
+                    println!("Current best ASCII art:\n{}\n", best_ascii);
+                }
             }
             
             if generation < generations - 1 {

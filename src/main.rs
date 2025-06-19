@@ -33,6 +33,9 @@ struct Args {
     
     #[arg(short = 'd', long, help = "Save debug images (converted input and final ASCII art as PNG files)")]
     debug: bool,
+    
+    #[arg(short = 'v', long, help = "Verbose output: display fittest ASCII art after each progress update")]
+    verbose: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -83,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     
     println!("Running genetic algorithm for {} generations...", args.generations);
-    let best_individual = ga.evolve(args.generations);
+    let best_individual = ga.evolve(args.generations, args.verbose);
     
     let ascii_art = ascii_gen.individual_to_string(&best_individual, target_width);
     println!("\nBest ASCII art (fitness: {:.2}%):\n{}", best_individual.fitness * 100.0, ascii_art);
@@ -101,8 +104,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         resized_bw.save(&input_debug_path)?;
         println!("Debug input image saved to: {}", input_debug_path);
         
-        // Save final ASCII art as image
-        let ascii_image = ascii_gen.generate_ascii_image(&best_individual.chars, target_width, target_height);
+        // Save final ASCII art as image (using larger debug version for readability)
+        let ascii_image = ascii_gen.generate_debug_ascii_image(&best_individual.chars, target_width, target_height);
         let ascii_debug_path = format!("debug_ascii_{}.png", 
             args.input.file_stem().unwrap_or_default().to_string_lossy());
         ascii_image.save(&ascii_debug_path)?;

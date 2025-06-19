@@ -144,6 +144,60 @@ impl AsciiGenerator {
     pub fn char_dimensions(&self) -> (u32, u32) {
         (self.char_width, self.char_height)
     }
+    
+    /// Generates a larger ASCII art image for debug purposes with more readable characters
+    pub fn generate_debug_ascii_image(&self, chars: &[u8], width: u32, height: u32) -> ImageBuffer<Luma<u8>, Vec<u8>> {
+        // Use larger font size for debug images (3x larger)
+        let debug_char_width = self.char_width * 3;
+        let debug_char_height = self.char_height * 3;
+        let img_width = width * debug_char_width;
+        let img_height = height * debug_char_height;
+        let mut result = ImageBuffer::new(img_width, img_height);
+        
+        // Fill with white background
+        for pixel in result.pixels_mut() {
+            *pixel = Luma([255u8]);
+        }
+        
+        // Render each character at larger size
+        let font_data = include_bytes!("../assets/DejaVuSansMono.ttf");
+        let font = Font::try_from_bytes(font_data).expect("Failed to load font");
+        let scale = rusttype::Scale::uniform(36.0); // 3x larger than normal (12.0 * 3)
+        
+        for (i, &char_code) in chars.iter().enumerate() {
+            let x = (i as u32) % width;
+            let y = (i as u32) / width;
+            
+            if y >= height {
+                break;
+            }
+            
+            let ch = char_code as char;
+            let glyph = font.glyph(ch).scaled(scale);
+            
+            // Position character with proper baseline, similar to how render_char works
+            if let Some(bb) = glyph.exact_bounding_box() {
+                let positioned_glyph = glyph.positioned(rusttype::point(0.0, scale.y));
+                
+                if let Some(pixel_bb) = positioned_glyph.pixel_bounding_box() {
+                    let start_x = x * debug_char_width;
+                    let start_y = y * debug_char_height;
+                    
+                    positioned_glyph.draw(|px, py, v| {
+                        let draw_x = px as i32 + pixel_bb.min.x as i32 + start_x as i32;
+                        let draw_y = py as i32 + pixel_bb.min.y as i32 + start_y as i32;
+                        
+                        if draw_x >= 0 && draw_y >= 0 && (draw_x as u32) < img_width && (draw_y as u32) < img_height {
+                            let intensity = (255.0 * (1.0 - v)) as u8;
+                            result.put_pixel(draw_x as u32, draw_y as u32, Luma([intensity]));
+                        }
+                    });
+                }
+            }
+        }
+        
+        result
+    }
 }
 
 #[cfg(test)]
