@@ -58,6 +58,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let processor = image_processor::ImageProcessor::new();
     let original_img = processor.load_image(&args.input)?;
     
+    println!("Input image size: {}x{}", original_img.width(), original_img.height());
+    
     let (target_width, target_height) = calculate_dimensions(
         &original_img, 
         args.width, 
@@ -75,9 +77,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Character dimensions: {}x{}", char_width, char_height);
     println!("Target pixel dimensions: {}x{}", target_pixel_width, target_pixel_height);
-    
+
     let resized_bw = processor.prepare_target_image(&original_img, target_pixel_width, target_pixel_height)?;
-    
+
+    println!("Post-processed input image size: {}x{}", resized_bw.width(), resized_bw.height());
+
     let mut ga = genetic_algorithm::GeneticAlgorithm::new(
         target_width,
         target_height,
@@ -90,6 +94,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Running genetic algorithm for {} generations...", args.generations);
     let best_individual = ga.evolve(args.generations, args.verbose);
+    
+    // Generate output ASCII image buffer to get its dimensions
+    let output_ascii_image = ascii_gen.generate_ascii_image(&best_individual.chars, target_width, target_height);
+    println!("Output ASCII image buffer size: {}x{}", output_ascii_image.width(), output_ascii_image.height());
     
     let ascii_art = ascii_gen.individual_to_string(&best_individual, target_width);
     println!("\nBest ASCII art (fitness: {:.2}%):\n{}", best_individual.fitness * 100.0, ascii_art);
@@ -107,8 +115,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         resized_bw.save(&input_debug_path)?;
         println!("Debug input image saved to: {}", input_debug_path);
         
-        // Save final ASCII art as image (using larger debug version for readability)
-        let ascii_image = ascii_gen.generate_debug_ascii_image_with_background(&best_individual.chars, target_width, target_height, args.white_background);
+        // Save final ASCII art as image (same size as fitness comparison buffer)
+        let ascii_image = ascii_gen.generate_ascii_image_with_background(&best_individual.chars, target_width, target_height, args.white_background);
         let ascii_debug_path = format!("debug_ascii_{}.png", 
             args.input.file_stem().unwrap_or_default().to_string_lossy());
         ascii_image.save(&ascii_debug_path)?;
