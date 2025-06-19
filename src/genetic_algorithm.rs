@@ -16,9 +16,10 @@ pub struct Individual {
 }
 
 impl Individual {
-    /// Creates a new individual with random ASCII characters
+    /// Creates a new individual with random ASCII characters (for tests)
+    #[cfg(test)]
     pub fn new_random(size: usize) -> Self {
-        Self::new_random_with_background_prob(size, 0.0) // Default to no background bias
+        Self::new_random_with_background_prob(size, 0.0)
     }
     
     /// Creates a new individual with random ASCII characters using background probability
@@ -98,9 +99,10 @@ impl Individual {
         (Individual::new(child1_chars), Individual::new(child2_chars))
     }
     
-    /// Performs mutation on the individual
+    /// Performs mutation on the individual (for tests)
+    #[cfg(test)]
     pub fn mutate(&mut self, mutation_rate: f64) {
-        self.mutate_with_background_prob(mutation_rate, 0.0); // Default to no background bias
+        self.mutate_with_background_prob(mutation_rate, 0.0);
     }
     
     /// Performs mutation on the individual using background probability
@@ -358,9 +360,6 @@ impl<'a> GeneticAlgorithm<'a> {
         
         // Step 4: Calculate fitness based on non-background pixel comparison
         let mut score = 0.0;
-        let mut target_lit_count = 0;
-        let mut ascii_false_positive_count = 0;
-        let mut matches_count = 0;
         
         // Step 5: Compare every pixel in both images
         for y in 0..min_height {
@@ -375,19 +374,16 @@ impl<'a> GeneticAlgorithm<'a> {
                 
                 // Step 8: Only score based on meaningful pixels (target non-background)
                 if target_is_lit {
-                    target_lit_count += 1;
                     // Step 9: Calculate absolute difference between pixel intensities
                     let diff = (ascii_pixel as i32 - target_pixel as i32).abs();
                     
                     // Step 10: Award points for close matches within tolerance
                     if diff < 30 { // Tolerance of 30 out of 255 levels
                         score += 1.0;
-                        matches_count += 1;
                     }
                 } else if ascii_is_lit {
                     // Step 11: Penalize when ASCII is lit but target is background
                     score -= 0.005; // Small penalty for false positive
-                    ascii_false_positive_count += 1;
                 }
             }
         }
@@ -547,16 +543,16 @@ mod tests {
     
     #[test]
     fn test_individual_with_init_char() {
-        // Use 'o' which is in our allowed character set
-        let individual = Individual::new_with_init_char(100, 'o');
+        // Use 'O' which is in our allowed character set
+        let individual = Individual::new_with_init_char(100, 'O');
         assert_eq!(individual.chars.len(), 100);
         
-        // Count how many characters are 'o' (should be around 95%)
-        let o_count = individual.chars.iter().filter(|&&c| c == b'o').count();
-        let random_count = individual.chars.iter().filter(|&&c| c != b'o').count();
+        // Count how many characters are 'O' (should be around 95%)
+        let o_count = individual.chars.iter().filter(|&&c| c == b'O').count();
+        let random_count = individual.chars.iter().filter(|&&c| c != b'O').count();
         
-        // Should be approximately 95% 'o' and 5% random (with some variance)
-        assert!(o_count >= 90); // At least 90% should be 'o'
+        // Should be approximately 95% 'O' and 5% random (with some variance)
+        assert!(o_count >= 90); // At least 90% should be 'O'
         assert!(random_count <= 10); // At most 10% should be random
         assert_eq!(o_count + random_count, 100);
         

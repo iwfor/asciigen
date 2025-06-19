@@ -161,12 +161,8 @@ impl AsciiGenerator {
         (self.char_width, self.char_height)
     }
 
-    /// Generates a larger ASCII art image for debug purposes with more readable characters
-    pub fn generate_debug_ascii_image(&self, chars: &[u8], width: u32, height: u32) -> ImageBuffer<Luma<u8>, Vec<u8>> {
-        self.generate_debug_ascii_image_with_background(chars, width, height, false)
-    }
-
     /// Generates a larger ASCII art image for debug purposes with optional white background
+    #[allow(dead_code)]
     pub fn generate_debug_ascii_image_with_background(&self, chars: &[u8], width: u32, height: u32, white_background: bool) -> ImageBuffer<Luma<u8>, Vec<u8>> {
         // Use larger font size for debug images (3x larger)
         let debug_char_width = self.char_width * 3;
@@ -198,7 +194,7 @@ impl AsciiGenerator {
             let glyph = font.glyph(ch).scaled(scale);
 
             // Position character with proper baseline, similar to how render_char works
-            if let Some(bb) = glyph.exact_bounding_box() {
+            if let Some(_bb) = glyph.exact_bounding_box() {
                 let positioned_glyph = glyph.positioned(rusttype::point(0.0, scale.y));
 
                 if let Some(pixel_bb) = positioned_glyph.pixel_bounding_box() {
