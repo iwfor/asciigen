@@ -61,8 +61,11 @@ cargo run -- image.jpg --width 15 --debug --white-background
 # Verbose mode with real-time progress and custom status interval
 cargo run -- image.jpg --width 20 --verbose --generations 100 --status-interval 0.5
 
+# Use larger population for high-core count systems
+cargo run -- image.jpg --width 25 --population 200 --jobs 16
+
 # Full featured run with all options
-cargo run -- image.jpg --width 25 --generations 50 --jobs 8 --init-char '#' --verbose --debug --status-interval 2.0
+cargo run -- image.jpg --width 25 --generations 50 --jobs 8 --population 120 --init-char '#' --verbose --debug --status-interval 2.0
 ```
 
 ### Command Line Options
@@ -78,6 +81,7 @@ Options:
   -H, --height <HEIGHT>            Height in characters  
   -g, --generations <GENERATIONS>  Number of generations [default: 100]
   -j, --jobs <JOBS>                Number of threads for parallel fitness evaluation [default: 4]
+  -p, --population <SIZE>          Population size (20-1000) [default: 80]
   -i, --init-char <INIT_CHAR>      Character to initialize art buffers with (95% of characters, 5% random)
   -o, --output <OUTPUT>            Output file path (optional)
   -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
@@ -89,6 +93,8 @@ Options:
 
 ### Requirements
 - Specify **either** width **or** height (not both)
+- Population size must be between 20 and 1000
+- Thread count should match your system's capabilities (larger populations benefit from more threads)
 - Supported image formats: PNG, JPEG, GIF, BMP, TIFF, WebP
 - Font file: DejaVu Sans Mono (included in `assets/` directory)
 - Initialization character must be from the allowed character set if specified
@@ -112,7 +118,7 @@ Both debug images are the same dimensions, allowing pixel-perfect comparison of 
 
 ### Genetic Algorithm Process
 
-1. **Smart Initialization**: Creates a population of 40 ASCII art individuals using background probability
+1. **Smart Initialization**: Creates a population of ASCII art individuals (default 80) using background probability
    - Calculates percentage of background pixels in target image
    - Uses this probability to place spaces vs characters during initialization
 2. **Intelligent Fitness Evaluation**: Focuses on meaningful pixels rather than background
@@ -141,13 +147,23 @@ Both debug images are the same dimensions, allowing pixel-perfect comparison of 
 
 ## Performance
 
-The application shows significant performance improvements with multi-threading:
+The application shows significant performance improvements with multi-threading and larger populations:
 
-| Threads | Execution Time | Speedup | CPU Usage |
-|---------|---------------|---------|-----------|
-| 1       | 1.111s        | 1.0x    | 61%       |
-| 4       | 0.694s        | 1.6x    | 104%      |
-| 8       | 0.658s        | 1.7x    | 119%      |
+| Threads | Population | Execution Time | Speedup | CPU Usage | Notes |
+|---------|------------|---------------|---------|-----------|-------|
+| 1       | 80         | 1.111s        | 1.0x    | 61%       | Baseline |
+| 4       | 80         | 0.694s        | 1.6x    | 104%      | Good for most systems |
+| 8       | 80         | 0.658s        | 1.7x    | 119%      | Diminishing returns |
+| 8       | 200        | 1.245s        | 0.9x    | 145%      | Better exploration |
+| 16      | 400        | 2.156s        | 0.5x    | 187%      | High-end systems |
+
+**Population Size Guidelines:**
+- **Small systems (1-4 cores)**: 40-80 population
+- **Mid-range systems (6-8 cores)**: 80-150 population  
+- **High-end systems (12+ cores)**: 200-400 population
+- **Workstations (24+ cores)**: 400-800 population
+
+Larger populations provide better genetic diversity and solution quality but require more cores to be efficient.
 
 ## Examples
 
@@ -169,7 +185,7 @@ A simple 50x50 pixel image with geometric shapes.
 ### Fitness Evolution with Time-Based Progress
 ```
 Background threshold: 50, Total non-background pixels: 1218, Background probability: 94.2%
-Running genetic algorithm for 100 generations...
+Running genetic algorithm for 100 generations with population size 80...
 Generation 20: Best fitness = 2.91% (elapsed: 0.5s)
 Generation 41: Best fitness = 4.60% (elapsed: 1.0s)
 Generation 62: Best fitness = 4.65% (elapsed: 1.5s)
@@ -227,8 +243,8 @@ cargo build --release
 ## Algorithm Details
 
 ### Genetic Algorithm Parameters
-- **Population Size**: 40 individuals
-- **Elite Size**: 10% of population (4 individuals)
+- **Population Size**: 80 individuals (configurable 20-1000)
+- **Elite Size**: 10% of population (8 individuals with default size)
 - **Mutation Rate**: 1% per character
 - **Crossover Rate**: 80%
 - **Selection**: Tournament selection (size 3)

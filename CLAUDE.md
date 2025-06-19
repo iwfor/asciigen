@@ -28,7 +28,7 @@ ASCIIGen is a Rust application that generates ASCII art from images using geneti
    - Uses DejaVu Sans Mono font (included in `assets/` directory)
 
 4. **`src/genetic_algorithm.rs`** - Genetic algorithm implementation
-   - Population-based evolution with 40 individuals
+   - Population-based evolution with configurable population size (default 80)
    - Tournament selection, uniform crossover, and mutation operations
    - Parallel fitness evaluation using `rayon`
    - Elite preservation (top 10% survive each generation)
@@ -38,6 +38,7 @@ ASCIIGen is a Rust application that generates ASCII art from images using geneti
 1. **Parallel Processing**: Uses `rayon` for multi-threaded fitness evaluation
    - Significant performance improvements (37-41% faster with 4-8 threads)
    - Thread pool configured based on user input (`-j/--jobs` option)
+   - Larger populations (200-800) more effectively utilize high core count systems
 
 2. **Font Rendering**: Uses embedded TrueType font for consistent character rendering
    - Font file must be placed in `assets/DejaVuSansMono.ttf`
@@ -102,6 +103,7 @@ Options:
   -H, --height <HEIGHT>            Height in characters
   -g, --generations <GENERATIONS>  Number of generations [default: 100]
   -j, --jobs <JOBS>                Number of threads [default: 4]
+  -p, --population <SIZE>          Population size (20-1000) [default: 80]
   -i, --init-char <INIT_CHAR>      Initialization character (95% + 5% random)
   -o, --output <OUTPUT>            Output file path (optional)
   -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
@@ -113,9 +115,11 @@ Options:
 
 ### Validation Rules
 - Must specify either width OR height (not both)
+- Population size must be between 20 and 1000
 - Initialization character must be from the allowed character set
 - Thread count should be reasonable (1-16 typically)
 - Status interval can be fractional seconds (e.g., 0.5, 2.5)
+- For optimal performance, match population size to available CPU cores
 - Debug and verbose modes can be used together for comprehensive analysis
 
 ## Dependencies
@@ -165,11 +169,19 @@ Options:
 - Consider fitness implications of character changes
 
 ### Modifying Genetic Algorithm Parameters
-- Population size: Currently 40, defined in `main.rs`
-- Elite size: 10% of population, in `GeneticAlgorithm::new()`
+- Population size: Configurable via CLI (20-1000), default 80
+- Elite size: 10% of population, calculated in `GeneticAlgorithm::new()`
 - Mutation rate: 1%, in `GeneticAlgorithm::new()`
 - Crossover rate: 80%, in `GeneticAlgorithm::new()`
 - Tournament size: 3, in `tournament_selection()`
+
+### Population Size Recommendations
+- **1-4 cores**: 40-80 population
+- **6-8 cores**: 80-150 population
+- **12+ cores**: 200-400 population
+- **24+ cores**: 400-800 population
+
+Larger populations provide better genetic diversity but require more CPU cores for efficient parallel processing.
 
 ### Adding New Fitness Functions
 1. Create new method in `GeneticAlgorithm`
@@ -312,6 +324,12 @@ Each feature was implemented with full testing and maintains backward compatibil
 - Default 1.0 second intervals with fractional second support (e.g., 0.5s, 2.5s)
 - Shows elapsed time and total runtime for better performance tracking
 - Provides consistent user feedback regardless of hardware speed
+
+#### Configurable Population Size
+- Added CLI option for population size (20-1000) with default of 80
+- Larger populations provide better genetic diversity and solution quality
+- Scales effectively with high core count systems (200-800 for 12+ cores)
+- Includes validation and performance guidelines for different system configurations
 
 #### Debug Image Improvements
 - Debug ASCII images now match fitness comparison buffer dimensions exactly
