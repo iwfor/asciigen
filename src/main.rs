@@ -60,9 +60,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Target ASCII dimensions: {}x{}", target_width, target_height);
     
-    let resized_bw = processor.prepare_target_image(&original_img, target_width, target_height)?;
-    
     let ascii_gen = ascii_generator::AsciiGenerator::new();
+    
+    // Calculate actual pixel dimensions needed for ASCII character rendering
+    let (char_width, char_height) = ascii_gen.char_dimensions();
+    let target_pixel_width = target_width * char_width;
+    let target_pixel_height = target_height * char_height;
+    
+    println!("Character dimensions: {}x{}", char_width, char_height);
+    println!("Target pixel dimensions: {}x{}", target_pixel_width, target_pixel_height);
+    
+    let resized_bw = processor.prepare_target_image(&original_img, target_pixel_width, target_pixel_height)?;
     
     let mut ga = genetic_algorithm::GeneticAlgorithm::new(
         target_width,
