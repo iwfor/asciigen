@@ -1,6 +1,6 @@
 # ASCIIGen
 
-A Rust application that generates ASCII art from images using genetic algorithms with parallel processing support.
+A Rust application that generates ASCII art from images using genetic algorithms with parallel processing support.  This is a terrible approach to solving this problem but a great demonstration of genetic algorithms.
 
 ## Features
 
