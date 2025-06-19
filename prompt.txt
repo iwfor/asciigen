@@ -1,0 +1,22 @@
+Create a Rust application that will generate an ascii art version of an image
+file by using a genetic algorithm that includes reproduction, crossovers, and
+mutations.  It should use the `image` and `fast_image_resize` crates.
+
+The user can specify either the width or the height of the generated ascii art
+in characters and the app will calculate the other dimension based on the
+dimensions of the input image.
+
+All methods should be unit tested and mocks used where appropriate.
+
+Ascii art should be generated into an image buffer from 7-bit ASCII
+characters starting at 0x20. For the purposes of sizing the images buffers
+and art use a monospace 12 point font.  The source image should be resized into an
+image buffer of the same size as the generated ascii art and converted to black
+and white.
+
+For the genetic algorithm we will use 40 instance of the generated ascii art.
+The inital ascii image instances should be generated from random characters.
+The fitness function should use percentage match of pixels between the
+ascii art buffer and the image buffer with the higher percentage being a higher
+fitness.  The user should be able to specify the number of generations the
+program will run with the default being 100 generations.
