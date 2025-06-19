@@ -42,6 +42,9 @@ struct Args {
     
     #[arg(short = 's', long, default_value = "1.0", help = "Status update interval in seconds")]
     status_interval: f64,
+    
+    #[arg(short = 'p', long, default_value = "80", help = "Population size (20-1000)")]
+    population: usize,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -54,6 +57,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     if args.width.is_some() && args.height.is_some() {
         eprintln!("Error: Specify only width OR height, not both");
+        std::process::exit(1);
+    }
+    
+    if args.population < 20 || args.population > 1000 {
+        eprintln!("Error: Population size must be between 20 and 1000");
         std::process::exit(1);
     }
     
@@ -88,7 +96,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ga = genetic_algorithm::GeneticAlgorithm::new(
         target_width,
         target_height,
-        40, // population size
+        args.population,
         &ascii_gen,
         &resized_bw,
         args.jobs,
@@ -96,7 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.white_background,
     );
     
-    println!("Running genetic algorithm for {} generations...", args.generations);
+    println!("Running genetic algorithm for {} generations with population size {}...", args.generations, args.population);
     let best_individual = ga.evolve(args.generations, args.verbose, args.status_interval);
     
     // Generate output ASCII image buffer to get its dimensions
