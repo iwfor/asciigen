@@ -15,6 +15,9 @@ pub struct UIStats {
     pub best_fitness: f64,
     pub elapsed_time: f64,
     pub population_size: usize,
+    pub thread_count: usize,
+    pub width: u32,
+    pub height: u32,
     pub ascii_art: Option<String>,
 }
 
@@ -148,13 +151,29 @@ impl NcursesUI {
         mvprintw(y_start + 2, 15, &format!("{:.1}s", stats.elapsed_time));
         attroff(COLOR_PAIR(1));
         
+        // Thread count
+        attron(COLOR_PAIR(5));
+        mvprintw(y_start + 2, 35, "Threads:");
+        attroff(COLOR_PAIR(5));
+        attron(COLOR_PAIR(1));
+        mvprintw(y_start + 2, 44, &format!("{}", stats.thread_count));
+        attroff(COLOR_PAIR(1));
+        
         // Generations per second
         let gens_per_sec = self.calculate_generations_per_second();
         attron(COLOR_PAIR(5));
-        mvprintw(y_start + 2, 35, "Gen/s:");
+        mvprintw(y_start + 2, 55, "Gen/s:");
         attroff(COLOR_PAIR(5));
         attron(COLOR_PAIR(1));
-        mvprintw(y_start + 2, 42, &format!("{:.2}", gens_per_sec));
+        mvprintw(y_start + 2, 62, &format!("{:.2}", gens_per_sec));
+        attroff(COLOR_PAIR(1));
+        
+        // ASCII Art Dimensions
+        attron(COLOR_PAIR(5));
+        mvprintw(y_start + 3, 0, "ASCII Size:");
+        attroff(COLOR_PAIR(5));
+        attron(COLOR_PAIR(1));
+        mvprintw(y_start + 3, 15, &format!("{}x{} chars", stats.width, stats.height));
         attroff(COLOR_PAIR(1));
         
         // ETA (Estimated Time of Arrival)
@@ -162,17 +181,17 @@ impl NcursesUI {
             let remaining_gens = stats.total_generations - stats.generation;
             let eta_seconds = remaining_gens as f64 / gens_per_sec;
             attron(COLOR_PAIR(5));
-            mvprintw(y_start + 3, 0, "ETA:");
+            mvprintw(y_start + 3, 35, "ETA:");
             attroff(COLOR_PAIR(5));
             attron(COLOR_PAIR(2));
-            mvprintw(y_start + 3, 15, &format!("{:.1}s", eta_seconds));
+            mvprintw(y_start + 3, 40, &format!("{:.1}s", eta_seconds));
             attroff(COLOR_PAIR(2));
         }
     }
     
     /// Draw a progress bar
     fn draw_progress_bar(&self, current: u32, total: u32) {
-        let y = 8;
+        let y = 9;
         let bar_width = 60;
         let progress = current as f64 / total as f64;
         let filled = (bar_width as f64 * progress) as usize;
@@ -199,7 +218,7 @@ impl NcursesUI {
     
     /// Draw ASCII art if provided
     fn draw_ascii_art(&self, art: &str) {
-        let y_start = 10;
+        let y_start = 11;
         
         attron(COLOR_PAIR(4));
         mvprintw(y_start, 0, "Current Best ASCII Art:");

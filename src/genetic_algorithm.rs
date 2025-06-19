@@ -140,7 +140,6 @@ pub struct GeneticAlgorithm<'a> {
     mutation_rate: f64,
     crossover_rate: f64,
     elite_size: usize,
-    #[cfg(test)]
     thread_count: usize,
 }
 
@@ -204,7 +203,6 @@ impl<'a> GeneticAlgorithm<'a> {
             mutation_rate: 0.01,
             crossover_rate: 0.8,
             elite_size: population_size / 10, // Top 10% are elite
-            #[cfg(test)]
             thread_count,
         }
     }
@@ -237,9 +235,9 @@ impl<'a> GeneticAlgorithm<'a> {
     }
     
     /// Runs the genetic algorithm for the specified number of generations with optional UI callback
-    pub fn evolve<F>(&mut self, generations: u32, verbose: bool, status_interval: f64, mut ui_callback: Option<F>) -> Individual 
+    pub fn evolve<F>(&mut self, generations: u32, verbose: bool, status_interval: f64, mut ui_callback: Option<F>) -> (Individual, f64) 
     where 
-        F: FnMut(u32, u32, f64, f64, usize, Option<String>) -> bool,
+        F: FnMut(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool,
     {
         use std::time::{Duration, Instant};
         
@@ -270,6 +268,9 @@ impl<'a> GeneticAlgorithm<'a> {
                         best_fitness, 
                         elapsed, 
                         self.population_size,
+                        self.thread_count,
+                        self.width,
+                        self.height,
                         ascii_art.clone()
                     );
                     if !should_continue {
@@ -301,7 +302,7 @@ impl<'a> GeneticAlgorithm<'a> {
         println!("Final generation {}: Best fitness = {:.2}% (total time: {:.1}s)", 
                  generations - 1, self.population[0].fitness * 100.0, total_elapsed);
         
-        self.population[0].clone()
+        (self.population[0].clone(), total_elapsed)
     }
     
     /// Evaluates the fitness of all individuals in the population using parallel processing

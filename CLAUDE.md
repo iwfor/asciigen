@@ -120,7 +120,9 @@ By default, ASCIIGen uses an interactive ncurses-based text user interface that 
 
 - **Real-time Progress Display**: Shows current generation, progress percentage, and estimated time to completion
 - **Fitness Tracking**: Displays current best fitness with color-coded indicators (red < 30%, yellow 30-70%, green > 70%)
-- **Performance Metrics**: Real-time generations per second calculation and elapsed time
+- **Performance Metrics**: Real-time generations per second calculation, elapsed time, and active thread count
+- **Thread Information**: Displays number of threads used for parallel fitness calculation
+- **ASCII Dimensions**: Shows target ASCII art size in characters (width × height)
 - **Interactive Control**: Press 'q' to quit early, other keys for future controls
 - **Live ASCII Preview**: When verbose mode is enabled, shows the current best ASCII art in real-time
 - **Visual Progress Bar**: Graphical representation of evolution progress with filled/empty indicators

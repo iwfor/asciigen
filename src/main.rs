@@ -110,20 +110,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     println!("Running genetic algorithm for {} generations with population size {}...", args.generations, args.population);
     
-    let best_individual = if args.no_ui {
+    let (best_individual, total_elapsed) = if args.no_ui {
         // Use console output
-        ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, Option<String>) -> bool>)
+        ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
     } else {
         // Use ncurses UI
         match ncurses_ui::NcursesUI::new() {
             Ok(mut ui) => {
-                let result = ga.evolve(args.generations, args.verbose, args.status_interval, Some(|generation, total_generations, best_fitness, elapsed_time, population_size, ascii_art| {
+                let result = ga.evolve(args.generations, args.verbose, args.status_interval, Some(|generation, total_generations, best_fitness, elapsed_time, population_size, thread_count, width, height, ascii_art| {
                     let stats = ncurses_ui::UIStats {
                         generation,
                         total_generations,
                         best_fitness,
                         elapsed_time,
                         population_size,
+                        thread_count,
+                        width,
+                        height,
                         ascii_art,
                     };
                     
@@ -146,7 +149,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
             Err(e) => {
                 eprintln!("Failed to initialize ncurses UI: {}. Falling back to console output.", e);
-                ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, Option<String>) -> bool>)
+                ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
             }
         }
     };
@@ -156,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Output ASCII image buffer size: {}x{}", output_ascii_image.width(), output_ascii_image.height());
     
     let ascii_art = ascii_gen.individual_to_string(&best_individual, target_width);
-    println!("\nBest ASCII art (fitness: {:.2}%):\n{}", best_individual.fitness * 100.0, ascii_art);
+    println!("\nBest ASCII art ({}x{} characters, fitness: {:.2}%, elapsed: {:.1}s):\n{}", target_width, target_height, best_individual.fitness * 100.0, total_elapsed, ascii_art);
     
     if let Some(output_path) = args.output {
         std::fs::write(&output_path, ascii_art)?;
