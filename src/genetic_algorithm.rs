@@ -5,6 +5,9 @@ use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::sync::Arc;
 
+/// Limited character set for ASCII art generation
+const ALLOWED_CHARS: &[u8] = b" <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'\"!@#$%^&*()8";
+
 /// Represents an individual in the genetic algorithm population
 #[derive(Clone, Debug)]
 pub struct Individual {
@@ -17,7 +20,7 @@ impl Individual {
     pub fn new_random(size: usize) -> Self {
         let mut rng = thread_rng();
         let chars: Vec<u8> = (0..size)
-            .map(|_| rng.gen_range(0x20..=0x7F))
+            .map(|_| ALLOWED_CHARS[rng.gen_range(0..ALLOWED_CHARS.len())])
             .collect();
         
         Self {
@@ -32,8 +35,8 @@ impl Individual {
         let mut rng = thread_rng();
         let init_byte = init_char as u8;
         
-        // Ensure the init_char is in valid ASCII range
-        let init_byte = if init_byte >= 0x20 && init_byte <= 0x7F {
+        // Ensure the init_char is in the allowed character set
+        let init_byte = if ALLOWED_CHARS.contains(&init_byte) {
             init_byte
         } else {
             b' ' // Default to space if invalid character
@@ -42,7 +45,7 @@ impl Individual {
         let chars: Vec<u8> = (0..size)
             .map(|_| {
                 if rng.gen::<f64>() < 0.05 { // 5% chance for random character
-                    rng.gen_range(0x20..=0x7F)
+                    ALLOWED_CHARS[rng.gen_range(0..ALLOWED_CHARS.len())]
                 } else {
                     init_byte
                 }
@@ -85,7 +88,7 @@ impl Individual {
         
         for char in &mut self.chars {
             if rng.gen::<f64>() < mutation_rate {
-                *char = rng.gen_range(0x20..=0x7F);
+                *char = ALLOWED_CHARS[rng.gen_range(0..ALLOWED_CHARS.len())];
             }
         }
     }
@@ -367,9 +370,9 @@ mod tests {
         // With 100% mutation rate, all characters should be different
         assert_ne!(individual.chars, original);
         
-        // But they should still be valid ASCII
+        // But they should still be from allowed character set
         for &ch in &individual.chars {
-            assert!(ch >= 0x20 && ch <= 0x7F);
+            assert!(ALLOWED_CHARS.contains(&ch));
         }
     }
     
@@ -421,17 +424,18 @@ mod tests {
     
     #[test]
     fn test_individual_with_init_char() {
-        let individual = Individual::new_with_init_char(100, 'A');
+        // Use 'o' which is in our allowed character set
+        let individual = Individual::new_with_init_char(100, 'o');
         assert_eq!(individual.chars.len(), 100);
         
-        // Count how many characters are 'A' (should be around 95%)
-        let a_count = individual.chars.iter().filter(|&&c| c == b'A').count();
-        let random_count = individual.chars.iter().filter(|&&c| c != b'A').count();
+        // Count how many characters are 'o' (should be around 95%)
+        let o_count = individual.chars.iter().filter(|&&c| c == b'o').count();
+        let random_count = individual.chars.iter().filter(|&&c| c != b'o').count();
         
-        // Should be approximately 95% 'A' and 5% random (with some variance)
-        assert!(a_count >= 90); // At least 90% should be 'A'
+        // Should be approximately 95% 'o' and 5% random (with some variance)
+        assert!(o_count >= 90); // At least 90% should be 'o'
         assert!(random_count <= 10); // At most 10% should be random
-        assert_eq!(a_count + random_count, 100);
+        assert_eq!(o_count + random_count, 100);
         
         // All random characters should be valid ASCII
         for &c in &individual.chars {
