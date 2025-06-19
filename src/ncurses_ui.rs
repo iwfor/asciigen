@@ -1,11 +1,11 @@
 use ncurses::*;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Interactive ncurses UI for displaying genetic algorithm progress
 pub struct NcursesUI {
-    last_generation_time: Instant,
-    generation_times: Vec<Duration>,
-    max_generation_history: usize,
+    start_time: Instant,
+    last_generation: u32,
+    last_update_time: Instant,
 }
 
 /// Statistics to display in the UI
@@ -51,25 +51,17 @@ impl NcursesUI {
         refresh();
         
         Ok(Self {
-            last_generation_time: Instant::now(),
-            generation_times: Vec::new(),
-            max_generation_history: 100, // Keep last 100 generation times for averaging
+            start_time: Instant::now(),
+            last_generation: 0,
+            last_update_time: Instant::now(),
         })
     }
     
     /// Update the display with current statistics
     pub fn update(&mut self, stats: &UIStats) {
-        // Record generation timing
-        let now = Instant::now();
-        let generation_duration = now.duration_since(self.last_generation_time);
-        self.generation_times.push(generation_duration);
-        
-        // Keep only recent generation times
-        if self.generation_times.len() > self.max_generation_history {
-            self.generation_times.remove(0);
-        }
-        
-        self.last_generation_time = now;
+        // Update timing information
+        self.last_generation = stats.generation;
+        self.last_update_time = Instant::now();
         
         // Clear screen and reset cursor
         clear();
@@ -160,7 +152,7 @@ impl NcursesUI {
         attroff(COLOR_PAIR(1));
         
         // Generations per second
-        let gens_per_sec = self.calculate_generations_per_second();
+        let gens_per_sec = self.calculate_generations_per_second(stats.generation);
         attron(COLOR_PAIR(5));
         mvprintw(y_start + 2, 55, "Gen/s:");
         attroff(COLOR_PAIR(5));
@@ -243,17 +235,15 @@ impl NcursesUI {
         attroff(COLOR_PAIR(4));
     }
     
-    /// Calculate average generations per second
-    fn calculate_generations_per_second(&self) -> f64 {
-        if self.generation_times.is_empty() {
+    /// Calculate generations per second based on overall progress
+    fn calculate_generations_per_second(&self, current_generation: u32) -> f64 {
+        if current_generation == 0 {
             return 0.0;
         }
         
-        let total_duration: Duration = self.generation_times.iter().sum();
-        let avg_duration = total_duration / self.generation_times.len() as u32;
-        
-        if avg_duration.as_secs_f64() > 0.0 {
-            1.0 / avg_duration.as_secs_f64()
+        let elapsed = self.last_update_time.duration_since(self.start_time).as_secs_f64();
+        if elapsed > 0.0 {
+            current_generation as f64 / elapsed
         } else {
             0.0
         }
@@ -290,5 +280,101 @@ impl NcursesUI {
 impl Drop for NcursesUI {
     fn drop(&mut self) {
         self.cleanup();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn create_test_ui() -> NcursesUI {
+        // Create UI without initializing ncurses for testing
+        NcursesUI {
+            start_time: Instant::now(),
+            last_generation: 0,
+            last_update_time: Instant::now(),
+        }
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_zero_generations() {
+        let ui = create_test_ui();
+        let result = ui.calculate_generations_per_second(0);
+        assert_eq!(result, 0.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_normal_case() {
+        let mut ui = create_test_ui();
+        
+        // Simulate 2 seconds elapsed
+        ui.last_update_time = ui.start_time + Duration::from_secs(2);
+        
+        // Test 10 generations in 2 seconds = 5.0 Gen/s
+        let result = ui.calculate_generations_per_second(10);
+        assert_eq!(result, 5.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_fractional_time() {
+        let mut ui = create_test_ui();
+        
+        // Simulate 0.5 seconds elapsed
+        ui.last_update_time = ui.start_time + Duration::from_millis(500);
+        
+        // Test 3 generations in 0.5 seconds = 6.0 Gen/s
+        let result = ui.calculate_generations_per_second(3);
+        assert_eq!(result, 6.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_one_generation() {
+        let mut ui = create_test_ui();
+        
+        // Simulate 1 second elapsed
+        ui.last_update_time = ui.start_time + Duration::from_secs(1);
+        
+        // Test 1 generation in 1 second = 1.0 Gen/s
+        let result = ui.calculate_generations_per_second(1);
+        assert_eq!(result, 1.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_high_rate() {
+        let mut ui = create_test_ui();
+        
+        // Simulate 100ms elapsed
+        ui.last_update_time = ui.start_time + Duration::from_millis(100);
+        
+        // Test 2 generations in 0.1 seconds = 20.0 Gen/s
+        let result = ui.calculate_generations_per_second(2);
+        assert_eq!(result, 20.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_very_small_time() {
+        let mut ui = create_test_ui();
+        
+        // Simulate 1ms elapsed
+        ui.last_update_time = ui.start_time + Duration::from_millis(1);
+        
+        // Test 1 generation in 0.001 seconds = 1000.0 Gen/s
+        let result = ui.calculate_generations_per_second(1);
+        assert_eq!(result, 1000.0);
+    }
+
+    #[test]
+    fn test_calculate_generations_per_second_no_time_elapsed() {
+        let start = Instant::now();
+        let ui = NcursesUI {
+            start_time: start,
+            last_generation: 0,
+            last_update_time: start, // Exactly the same time
+        };
+        
+        // Should return 0.0 to avoid division by zero
+        let result = ui.calculate_generations_per_second(5);
+        assert_eq!(result, 0.0);
     }
 }
