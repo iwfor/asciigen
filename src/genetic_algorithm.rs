@@ -236,8 +236,11 @@ impl<'a> GeneticAlgorithm<'a> {
         count as f64
     }
     
-    /// Runs the genetic algorithm for the specified number of generations
-    pub fn evolve(&mut self, generations: u32, verbose: bool, status_interval: f64) -> Individual {
+    /// Runs the genetic algorithm for the specified number of generations with optional UI callback
+    pub fn evolve<F>(&mut self, generations: u32, verbose: bool, status_interval: f64, mut ui_callback: Option<F>) -> Individual 
+    where 
+        F: FnMut(u32, u32, f64, f64, usize, Option<String>) -> bool,
+    {
         use std::time::{Duration, Instant};
         
         let start_time = Instant::now();
@@ -251,12 +254,38 @@ impl<'a> GeneticAlgorithm<'a> {
             if now.duration_since(last_update) >= update_interval {
                 let best_fitness = self.population[0].fitness;
                 let elapsed = now.duration_since(start_time).as_secs_f64();
-                println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s)", 
-                         generation, best_fitness * 100.0, elapsed);
                 
-                if verbose {
-                    let best_ascii = self.ascii_generator.individual_to_string(&self.population[0], self.width);
-                    println!("Current best ASCII art:\n{}\n", best_ascii);
+                // Prepare ASCII art for callback if verbose or UI callback exists
+                let ascii_art = if verbose || ui_callback.is_some() {
+                    Some(self.ascii_generator.individual_to_string(&self.population[0], self.width))
+                } else {
+                    None
+                };
+                
+                // Call UI callback if provided
+                if let Some(ref mut callback) = ui_callback {
+                    let should_continue = callback(
+                        generation, 
+                        generations, 
+                        best_fitness, 
+                        elapsed, 
+                        self.population_size,
+                        ascii_art.clone()
+                    );
+                    if !should_continue {
+                        println!("Evolution stopped by user");
+                        break;
+                    }
+                } else {
+                    // Fallback to console output
+                    println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s)", 
+                             generation, best_fitness * 100.0, elapsed);
+                    
+                    if verbose {
+                        if let Some(ref art) = ascii_art {
+                            println!("Current best ASCII art:\n{}\n", art);
+                        }
+                    }
                 }
                 
                 last_update = now;

@@ -1,6 +1,7 @@
 mod image_processor;
 mod ascii_generator;
 mod genetic_algorithm;
+mod ncurses_ui;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -45,6 +46,9 @@ struct Args {
     
     #[arg(short = 'p', long, default_value = "80", help = "Population size (20-1000)")]
     population: usize,
+    
+    #[arg(long, help = "Disable interactive ncurses UI and use console output instead")]
+    no_ui: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -105,7 +109,47 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     
     println!("Running genetic algorithm for {} generations with population size {}...", args.generations, args.population);
-    let best_individual = ga.evolve(args.generations, args.verbose, args.status_interval);
+    
+    let best_individual = if args.no_ui {
+        // Use console output
+        ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, Option<String>) -> bool>)
+    } else {
+        // Use ncurses UI
+        match ncurses_ui::NcursesUI::new() {
+            Ok(mut ui) => {
+                let result = ga.evolve(args.generations, args.verbose, args.status_interval, Some(|generation, total_generations, best_fitness, elapsed_time, population_size, ascii_art| {
+                    let stats = ncurses_ui::UIStats {
+                        generation,
+                        total_generations,
+                        best_fitness,
+                        elapsed_time,
+                        population_size,
+                        ascii_art,
+                    };
+                    
+                    ui.update(&stats);
+                    
+                    // Check for user input
+                    if let Some(ch) = ui.check_input() {
+                        match ch {
+                            'q' | 'Q' => return false, // Quit
+                            _ => {}
+                        }
+                    }
+                    
+                    true // Continue evolution
+                }));
+                
+                ui.show_message("Evolution complete! Press any key to continue...");
+                ui.check_input(); // Wait for key press
+                result
+            },
+            Err(e) => {
+                eprintln!("Failed to initialize ncurses UI: {}. Falling back to console output.", e);
+                ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, Option<String>) -> bool>)
+            }
+        }
+    };
     
     // Generate output ASCII image buffer to get its dimensions
     let output_ascii_image = ascii_gen.generate_ascii_image(&best_individual.chars, target_width, target_height);

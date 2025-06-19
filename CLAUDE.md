@@ -110,8 +110,26 @@ Options:
   -v, --verbose                    Verbose output: display fittest ASCII art after each progress update
   -W, --white-background           Use white background (default is black background with white characters)
   -s, --status-interval <SECONDS>  Status update interval in seconds [default: 1.0]
+      --no-ui                      Disable interactive ncurses UI and use console output instead
   -h, --help                       Print help
 ```
+
+### Interactive ncurses UI
+
+By default, ASCIIGen uses an interactive ncurses-based text user interface that provides:
+
+- **Real-time Progress Display**: Shows current generation, progress percentage, and estimated time to completion
+- **Fitness Tracking**: Displays current best fitness with color-coded indicators (red < 30%, yellow 30-70%, green > 70%)
+- **Performance Metrics**: Real-time generations per second calculation and elapsed time
+- **Interactive Control**: Press 'q' to quit early, other keys for future controls
+- **Live ASCII Preview**: When verbose mode is enabled, shows the current best ASCII art in real-time
+- **Visual Progress Bar**: Graphical representation of evolution progress with filled/empty indicators
+- **Color-Coded Interface**: Uses terminal colors to highlight important information
+- **Automatic Fallback**: Falls back to console output if ncurses initialization fails
+
+The ncurses UI provides a much more engaging and informative experience compared to simple console output.
+
+Use `--no-ui` to disable the interactive interface and use traditional console output instead.
 
 ### Validation Rules
 - Must specify either width OR height (not both)
@@ -131,6 +149,7 @@ Options:
 - `rayon = "1.10"` - Data parallelism
 - `clap = "4.5"` - Command-line parsing
 - `rand = "0.8"` - Random number generation
+- `ncurses = "5.101.0"` - Interactive terminal user interface
 
 ### Dev Dependencies
 - `mockall = "0.13"` - Mocking for unit tests
