@@ -53,8 +53,24 @@ ASCIIGen is a Rust application that generates ASCII art from images using geneti
 
 5. **Debug Mode**: Optional debug image output for analysis
    - Saves converted input image as PNG (resized grayscale version)
-   - Saves final ASCII art as rendered PNG image
+   - Saves final ASCII art as rendered PNG image with 3x larger characters for readability
    - Files named `debug_input_<filename>.png` and `debug_ascii_<filename>.png`
+   - Supports both black and white background modes
+
+6. **Verbose Mode**: Real-time evolution progress display
+   - Shows current best ASCII art every 10 generations
+   - Helps monitor genetic algorithm convergence
+   - Useful for tuning parameters and understanding evolution progress
+
+7. **Limited Character Set**: Optimized character palette for ASCII art
+   - Uses curated set: ` <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'"!@#$%^&*()8`
+   - Provides good visual variety while maintaining readability
+   - Avoids problematic characters that don't render well
+
+8. **Background Color Options**: Flexible output formatting
+   - Default: White characters on black background (terminal-friendly)
+   - White background mode: Black characters on white background (print-friendly)
+   - Proper color inversion for cached character images
 
 ## Command Line Interface
 
@@ -72,13 +88,16 @@ Options:
   -i, --init-char <INIT_CHAR>      Initialization character (95% + 5% random)
   -o, --output <OUTPUT>            Output file path (optional)
   -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
+  -v, --verbose                    Verbose output: display fittest ASCII art after each progress update
+  -W, --white-background           Use white background (default is black background with white characters)
   -h, --help                       Print help
 ```
 
 ### Validation Rules
 - Must specify either width OR height (not both)
-- Initialization character must be valid ASCII (0x20-0x7F)
+- Initialization character must be from the allowed character set
 - Thread count should be reasonable (1-16 typically)
+- Debug and verbose modes can be used together for comprehensive analysis
 
 ## Dependencies
 
@@ -115,10 +134,16 @@ Options:
 
 ### Adding New CLI Options
 1. Add field to `Args` struct in `main.rs`
-2. Update `GeneticAlgorithm::new()` signature if needed
-3. Pass value through the call chain
-4. Update tests that create `GeneticAlgorithm` instances
-5. Update help documentation
+2. Update `GeneticAlgorithm::evolve()` or other method signatures if needed
+3. Pass value through the call chain to relevant functions
+4. Update tests that create `GeneticAlgorithm` instances or call affected methods
+5. Update help documentation and CLAUDE.md
+
+### Modifying Character Set
+- Update `ALLOWED_CHARS` constant in `genetic_algorithm.rs`
+- Ensure character cache in `AsciiGenerator` covers all allowed characters
+- Update tests to use characters from the new set
+- Consider fitness implications of character changes
 
 ### Modifying Genetic Algorithm Parameters
 - Population size: Currently 40, defined in `main.rs`
@@ -240,5 +265,32 @@ The project was built incrementally with these major milestones:
 2. Multi-threaded parallel fitness evaluation
 3. Initialization character support with 95%/5% split
 4. Comprehensive testing and documentation
+5. Limited character set for optimized ASCII art generation
+6. Debug mode with image output for analysis and debugging
+7. Verbose mode for real-time evolution monitoring
+8. Background color options for flexible output formatting
+9. Improved character rendering with proper baseline alignment
 
 Each feature was implemented with full testing and maintains backward compatibility.
+
+### Recent Enhancements
+
+#### Character Set Optimization
+- Replaced full ASCII range with curated 46-character set
+- Improved visual quality and readability of generated ASCII art
+- Maintained compatibility with existing initialization and mutation logic
+
+#### Debug and Verbose Modes
+- Debug mode saves input processing and final ASCII art as PNG images
+- Verbose mode displays evolution progress with intermediate results
+- Both modes aid in parameter tuning and algorithm understanding
+
+#### Background Color System
+- Default: White characters on black background (terminal display)
+- Optional: Black characters on white background (printing/documents)
+- Proper color inversion maintains character readability in both modes
+
+#### Image Buffer Fixes
+- Corrected target image sizing to match ASCII character dimensions
+- Fixed character baseline alignment in debug images
+- Improved character rendering positioning and clarity

@@ -57,9 +57,9 @@ impl AsciiGenerator {
     fn render_char(&self, ch: char) -> ImageBuffer<Luma<u8>, Vec<u8>> {
         let mut img = ImageBuffer::new(self.char_width, self.char_height);
         
-        // Fill with white background
+        // Fill with black background (default)
         for pixel in img.pixels_mut() {
-            *pixel = Luma([255u8]);
+            *pixel = Luma([0u8]);
         }
         
         let glyph = self.font.glyph(ch).scaled(self.scale);
@@ -72,7 +72,7 @@ impl AsciiGenerator {
                 let py = y as i32 + bb.min.y as i32;
                 
                 if px >= 0 && py >= 0 && (px as u32) < self.char_width && (py as u32) < self.char_height {
-                    let intensity = (255.0 * (1.0 - v)) as u8;
+                    let intensity = (255.0 * v) as u8; // White characters on black background
                     img.put_pixel(px as u32, py as u32, Luma([intensity]));
                 }
             });
@@ -83,13 +83,19 @@ impl AsciiGenerator {
     
     /// Generates an ASCII art image buffer from a vector of character codes
     pub fn generate_ascii_image(&self, chars: &[u8], width: u32, height: u32) -> ImageBuffer<Luma<u8>, Vec<u8>> {
+        self.generate_ascii_image_with_background(chars, width, height, false)
+    }
+    
+    /// Generates an ASCII art image buffer with optional white background
+    pub fn generate_ascii_image_with_background(&self, chars: &[u8], width: u32, height: u32, white_background: bool) -> ImageBuffer<Luma<u8>, Vec<u8>> {
         let img_width = width * self.char_width;
         let img_height = height * self.char_height;
         let mut result = ImageBuffer::new(img_width, img_height);
         
-        // Fill with white background
+        // Fill with background color
+        let bg_color = if white_background { 255u8 } else { 0u8 };
         for pixel in result.pixels_mut() {
-            *pixel = Luma([255u8]);
+            *pixel = Luma([bg_color]);
         }
         
         for (i, &char_code) in chars.iter().enumerate() {
@@ -101,7 +107,16 @@ impl AsciiGenerator {
             }
             
             if let Some(char_img) = self.char_cache.get(&char_code) {
-                self.copy_char_to_image(&mut result, char_img, x * self.char_width, y * self.char_height);
+                if white_background {
+                    // Invert the cached character image for white background
+                    let mut inverted_img = char_img.clone();
+                    for pixel in inverted_img.pixels_mut() {
+                        pixel[0] = 255 - pixel[0]; // Invert pixel intensity
+                    }
+                    self.copy_char_to_image(&mut result, &inverted_img, x * self.char_width, y * self.char_height);
+                } else {
+                    self.copy_char_to_image(&mut result, char_img, x * self.char_width, y * self.char_height);
+                }
             }
         }
         
@@ -147,6 +162,11 @@ impl AsciiGenerator {
     
     /// Generates a larger ASCII art image for debug purposes with more readable characters
     pub fn generate_debug_ascii_image(&self, chars: &[u8], width: u32, height: u32) -> ImageBuffer<Luma<u8>, Vec<u8>> {
+        self.generate_debug_ascii_image_with_background(chars, width, height, false)
+    }
+    
+    /// Generates a larger ASCII art image for debug purposes with optional white background
+    pub fn generate_debug_ascii_image_with_background(&self, chars: &[u8], width: u32, height: u32, white_background: bool) -> ImageBuffer<Luma<u8>, Vec<u8>> {
         // Use larger font size for debug images (3x larger)
         let debug_char_width = self.char_width * 3;
         let debug_char_height = self.char_height * 3;
@@ -154,9 +174,10 @@ impl AsciiGenerator {
         let img_height = height * debug_char_height;
         let mut result = ImageBuffer::new(img_width, img_height);
         
-        // Fill with white background
+        // Fill with background color
+        let bg_color = if white_background { 255u8 } else { 0u8 };
         for pixel in result.pixels_mut() {
-            *pixel = Luma([255u8]);
+            *pixel = Luma([bg_color]);
         }
         
         // Render each character at larger size
@@ -188,7 +209,11 @@ impl AsciiGenerator {
                         let draw_y = py as i32 + pixel_bb.min.y as i32 + start_y as i32;
                         
                         if draw_x >= 0 && draw_y >= 0 && (draw_x as u32) < img_width && (draw_y as u32) < img_height {
-                            let intensity = (255.0 * (1.0 - v)) as u8;
+                            let intensity = if white_background {
+                                (255.0 * (1.0 - v)) as u8 // Black characters on white background
+                            } else {
+                                (255.0 * v) as u8 // White characters on black background
+                            };
                             result.put_pixel(draw_x as u32, draw_y as u32, Luma([intensity]));
                         }
                     });

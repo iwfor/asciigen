@@ -39,6 +39,18 @@ cargo run -- image.jpg --width 30 --generations 50 --jobs 8
 
 # Save output to file
 cargo run -- image.jpg --width 25 --output result.txt
+
+# Use character initialization for better convergence
+cargo run -- image.jpg --width 25 --init-char 'o'
+
+# Generate debug images with white background
+cargo run -- image.jpg --width 15 --debug --white-background
+
+# Verbose mode with real-time progress
+cargo run -- image.jpg --width 20 --verbose --generations 100
+
+# Full featured run with all options
+cargo run -- image.jpg --width 25 --generations 50 --jobs 8 --init-char '#' --verbose --debug
 ```
 
 ### Command Line Options
@@ -54,7 +66,11 @@ Options:
   -H, --height <HEIGHT>            Height in characters  
   -g, --generations <GENERATIONS>  Number of generations [default: 100]
   -j, --jobs <JOBS>                Number of threads for parallel fitness evaluation [default: 4]
+  -i, --init-char <INIT_CHAR>      Character to initialize art buffers with (95% of characters, 5% random)
   -o, --output <OUTPUT>            Output file path (optional)
+  -d, --debug                      Save debug images (converted input and final ASCII art as PNG files)
+  -v, --verbose                    Verbose output: display fittest ASCII art after each progress update
+  -W, --white-background           Use white background (default is black background with white characters)
   -h, --help                       Print help
 ```
 
@@ -62,6 +78,20 @@ Options:
 - Specify **either** width **or** height (not both)
 - Supported image formats: PNG, JPEG, GIF, BMP, TIFF, WebP
 - Font file: DejaVu Sans Mono (included in `assets/` directory)
+- Initialization character must be from the allowed character set if specified
+
+### Character Set
+ASCIIGen uses an optimized character set designed for ASCII art generation:
+```
+ <>,./?\\|[]{}-_=+AvViIoOxXwWM`~;:'"!@#$%^&*()8
+```
+
+This limited set provides good visual variety while maintaining readability and avoiding problematic characters.
+
+### Debug Mode
+When using the `--debug` flag, ASCIIGen saves two PNG files:
+- `debug_input_<filename>.png`: The processed input image (resized and grayscale)
+- `debug_ascii_<filename>.png`: The final ASCII art rendered as an image with 3x larger characters for readability
 
 ## How It Works
 
@@ -76,11 +106,13 @@ Options:
 
 ### Technical Implementation
 
-- **Image Processing**: Loads, resizes, and converts images to grayscale
-- **Font Rendering**: Renders ASCII characters using TrueType fonts
+- **Image Processing**: Loads, resizes, and converts images to grayscale with proper dimension matching
+- **Font Rendering**: Renders ASCII characters using TrueType fonts with proper baseline alignment
 - **Parallel Fitness**: Uses Rayon for concurrent fitness evaluations
-- **Character Set**: Uses 7-bit ASCII characters (0x20-0x7F)
+- **Character Set**: Uses optimized 46-character set for better ASCII art quality
 - **Fitness Function**: Pixel matching with tolerance for better convergence
+- **Debug Mode**: Saves processed input and final ASCII art as PNG images for analysis
+- **Background Options**: Supports both white-on-black (default) and black-on-white rendering
 
 ## Performance
 

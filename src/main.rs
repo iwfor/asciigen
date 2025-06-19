@@ -36,6 +36,9 @@ struct Args {
     
     #[arg(short = 'v', long, help = "Verbose output: display fittest ASCII art after each progress update")]
     verbose: bool,
+    
+    #[arg(short = 'W', long, help = "Use white background (default is black background with white characters)")]
+    white_background: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -105,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Debug input image saved to: {}", input_debug_path);
         
         // Save final ASCII art as image (using larger debug version for readability)
-        let ascii_image = ascii_gen.generate_debug_ascii_image(&best_individual.chars, target_width, target_height);
+        let ascii_image = ascii_gen.generate_debug_ascii_image_with_background(&best_individual.chars, target_width, target_height, args.white_background);
         let ascii_debug_path = format!("debug_ascii_{}.png", 
             args.input.file_stem().unwrap_or_default().to_string_lossy());
         ascii_image.save(&ascii_debug_path)?;
