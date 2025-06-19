@@ -90,6 +90,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &resized_bw,
         args.jobs,
         args.init_char,
+        args.white_background,
     );
     
     println!("Running genetic algorithm for {} generations...", args.generations);

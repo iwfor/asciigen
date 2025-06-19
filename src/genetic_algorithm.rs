@@ -102,6 +102,8 @@ pub struct GeneticAlgorithm<'a> {
     height: u32,
     ascii_generator: &'a AsciiGenerator,
     target_image: &'a ImageBuffer<Luma<u8>, Vec<u8>>,
+    total_non_background_pixels: f64,
+    background_threshold: u8,
     mutation_rate: f64,
     crossover_rate: f64,
     elite_size: usize,
@@ -119,6 +121,7 @@ impl<'a> GeneticAlgorithm<'a> {
         target_image: &'a ImageBuffer<Luma<u8>, Vec<u8>>,
         thread_count: usize,
         init_char: Option<char>,
+        white_background: bool,
     ) -> Self {
         let individual_size = (width * height) as usize;
         let population: Vec<Individual> = (0..population_size)
@@ -129,6 +132,13 @@ impl<'a> GeneticAlgorithm<'a> {
                 }
             })
             .collect();
+
+        // Calculate background threshold and count non-background pixels
+        let background_threshold = if white_background { 200 } else { 50 }; // Threshold for what counts as "background"
+        let total_non_background_pixels = Self::count_non_background_pixels(target_image, background_threshold, white_background);
+        
+        println!("Background threshold: {}, Total non-background pixels: {}", 
+                 background_threshold, total_non_background_pixels);
         
         // Set up thread pool for parallel processing
         // Only initialize if not already initialized (for testing compatibility)
@@ -150,12 +160,41 @@ impl<'a> GeneticAlgorithm<'a> {
             height,
             ascii_generator,
             target_image,
+            total_non_background_pixels,
+            background_threshold,
             mutation_rate: 0.01,
             crossover_rate: 0.8,
             elite_size: population_size / 10, // Top 10% are elite
             #[cfg(test)]
             thread_count,
         }
+    }
+    
+    /// Counts pixels that are not background color in the target image
+    fn count_non_background_pixels(
+        target_image: &ImageBuffer<Luma<u8>, Vec<u8>>,
+        background_threshold: u8,
+        white_background: bool,
+    ) -> f64 {
+        let mut count = 0;
+        
+        for pixel in target_image.pixels() {
+            let intensity = pixel[0];
+            
+            // For black background mode: non-background pixels are bright (> threshold)
+            // For white background mode: non-background pixels are dark (< threshold)
+            let is_non_background = if white_background {
+                intensity < background_threshold
+            } else {
+                intensity > background_threshold
+            };
+            
+            if is_non_background {
+                count += 1;
+            }
+        }
+        
+        count as f64
     }
     
     /// Runs the genetic algorithm for the specified number of generations
@@ -197,6 +236,8 @@ impl<'a> GeneticAlgorithm<'a> {
         let height = self.height;
         
         // Calculate fitness in parallel
+        let total_non_bg = self.total_non_background_pixels;
+        let bg_threshold = self.background_threshold;
         let fitness_values: Vec<f64> = chars_list
             .par_iter()
             .map(|chars| {
@@ -205,7 +246,9 @@ impl<'a> GeneticAlgorithm<'a> {
                     &ascii_gen, 
                     &target_img, 
                     width, 
-                    height
+                    height,
+                    total_non_bg,
+                    bg_threshold
                 )
             })
             .collect();
@@ -233,7 +276,9 @@ impl<'a> GeneticAlgorithm<'a> {
             &Arc::new(self.ascii_generator), 
             &Arc::new(self.target_image.clone()), 
             self.width, 
-            self.height
+            self.height,
+            self.total_non_background_pixels,
+            self.background_threshold
         )
     }
     
@@ -243,35 +288,61 @@ impl<'a> GeneticAlgorithm<'a> {
         ascii_generator: &Arc<&AsciiGenerator>, 
         target_image: &Arc<ImageBuffer<Luma<u8>, Vec<u8>>>, 
         width: u32, 
-        height: u32
+        height: u32,
+        total_non_background_pixels: f64,
+        background_threshold: u8
     ) -> f64 {
+        // Step 1: Generate ASCII art image from the character array
         let ascii_image = ascii_generator.generate_ascii_image(chars, width, height);
         
-        let mut matches = 0;
-        let mut total = 0;
+        // Step 2: Handle edge case of no non-background pixels to compare
+        if total_non_background_pixels == 0.0 {
+            return 0.0;
+        }
         
+        // Step 3: Find the overlapping dimensions to handle any size mismatches
         let min_width = ascii_image.width().min(target_image.width());
         let min_height = ascii_image.height().min(target_image.height());
         
+        // Step 4: Calculate fitness based on non-background pixel comparison
+        let mut score = 0.0;
+        let mut target_lit_count = 0;
+        let mut ascii_false_positive_count = 0;
+        let mut matches_count = 0;
+        
+        // Step 5: Compare every pixel in both images
         for y in 0..min_height {
             for x in 0..min_width {
+                // Step 6: Extract grayscale values (0-255) from both images
                 let ascii_pixel = ascii_image.get_pixel(x, y)[0];
                 let target_pixel = target_image.get_pixel(x, y)[0];
                 
-                // Use a tolerance for pixel matching
-                let diff = (ascii_pixel as i32 - target_pixel as i32).abs();
-                if diff < 30 { // Tolerance of 30 out of 255
-                    matches += 1;
+                // Step 7: Determine if pixels are "lit" (non-background)
+                let ascii_is_lit = ascii_pixel > background_threshold;
+                let target_is_lit = target_pixel > background_threshold;
+                
+                // Step 8: Only score based on meaningful pixels (target non-background)
+                if target_is_lit {
+                    target_lit_count += 1;
+                    // Step 9: Calculate absolute difference between pixel intensities
+                    let diff = (ascii_pixel as i32 - target_pixel as i32).abs();
+                    
+                    // Step 10: Award points for close matches within tolerance
+                    if diff < 30 { // Tolerance of 30 out of 255 levels
+                        score += 1.0;
+                        matches_count += 1;
+                    }
+                } else if ascii_is_lit {
+                    // Step 11: Penalize when ASCII is lit but target is background
+                    score -= 0.05; // Small penalty for false positive
+                    ascii_false_positive_count += 1;
                 }
-                total += 1;
             }
         }
         
-        if total == 0 {
-            0.0
-        } else {
-            matches as f64 / total as f64
-        }
+        // Step 12: Return fitness as percentage based on non-background pixels
+        // Clamp to 0.0 minimum to avoid negative fitness
+        (score / total_non_background_pixels).max(0.0)
     }
     
     /// Creates a new generation using selection, crossover, and mutation
@@ -381,7 +452,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2, None);
+        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2, None, false);
         
         assert_eq!(ga.population.len(), 20);
         assert_eq!(ga.population_size, 20);
@@ -400,7 +471,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None);
+        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None, false);
         let individual = Individual::new(vec![b' ', b' ', b' ', b' ']); // All spaces
         
         let fitness = ga.calculate_fitness(&individual);
@@ -412,7 +483,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None);
+        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None, false);
         
         // Set different fitness values
         ga.population[0].fitness = 0.9;
@@ -448,7 +519,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(3, 3, 5, &ascii_gen, &target_img, 1, Some('#'));
+        let ga = GeneticAlgorithm::new(3, 3, 5, &ascii_gen, &target_img, 1, Some('#'), false);
         
         // Check that all individuals in population use the init character
         for individual in &ga.population {
