@@ -521,8 +521,106 @@ mod tests {
         
         // But they should still be from allowed character set
         for &ch in &individual.chars {
-            assert!(ALLOWED_CHARS.contains(&ch));
+            assert!(ALLOWED_CHARS.contains(&ch), "Character {} (0x{:02X}) not in allowed character set", ch as char, ch);
         }
+    }
+    
+    #[test]
+    fn test_individual_random_creation_chars_valid() {
+        for _ in 0..10 {  // Run multiple times to catch any random issues
+            let individual = Individual::new_random(50);
+            
+            // All characters should be from allowed character set
+            for &c in &individual.chars {
+                assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
+            }
+        }
+    }
+    
+    #[test] 
+    fn test_individual_background_prob_chars_valid() {
+        for _ in 0..10 {  // Run multiple times to catch any random issues
+            let individual = Individual::new_random_with_background_prob(50, 0.5);
+            
+            // All characters should be from allowed character set
+            for &c in &individual.chars {
+                assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
+            }
+        }
+    }
+    
+    #[test]
+    fn test_mutation_with_background_prob_chars_valid() {
+        for _ in 0..10 {  // Run multiple times to catch any random issues
+            let mut individual = Individual::new(vec![b' '; 50]);
+            individual.mutate_with_background_prob(1.0, 0.3); // 100% mutation rate
+            
+            // All characters should be from allowed character set
+            for &c in &individual.chars {
+                assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
+            }
+        }
+    }
+    
+    #[test]
+    fn test_allowed_chars_content() {
+        // Print out the allowed character set to debug
+        println!("ALLOWED_CHARS length: {}", ALLOWED_CHARS.len());
+        println!("ALLOWED_CHARS content:");
+        for (i, &c) in ALLOWED_CHARS.iter().enumerate() {
+            println!("  [{}]: {} (0x{:02X})", i, c as char, c);
+        }
+        
+        // Check for unexpected digits
+        let digits: Vec<u8> = ALLOWED_CHARS.iter()
+            .filter(|&&c| c >= b'0' && c <= b'9')
+            .copied()
+            .collect();
+        println!("Digits in ALLOWED_CHARS: {:?}", digits.iter().map(|&c| c as char).collect::<Vec<_>>());
+        
+        // Only '8' should be present
+        assert_eq!(digits, vec![b'8'], "Only digit '8' should be in allowed characters, found: {:?}", digits.iter().map(|&c| c as char).collect::<Vec<_>>());
+    }
+    
+    #[test]
+    fn test_debug_character_generation_stress() {
+        // Generate many individuals and check for any invalid characters
+        for trial in 0..100 {
+            let individual = Individual::new_random_with_background_prob(100, 0.5);
+            
+            for (pos, &c) in individual.chars.iter().enumerate() {
+                if !ALLOWED_CHARS.contains(&c) {
+                    panic!("Trial {}, Position {}: Invalid character {} (0x{:02X}) found!", trial, pos, c as char, c);
+                }
+                
+                // Specifically check for digits other than '8'
+                if (c >= b'0' && c <= b'9') && c != b'8' {
+                    panic!("Trial {}, Position {}: Unexpected digit {} found!", trial, pos, c as char);
+                }
+            }
+        }
+        println!("Successfully tested 100 random individuals with no invalid characters");
+    }
+    
+    #[test]
+    fn test_ascii_art_with_percent_characters() {
+        // Create an individual with % characters that could cause format string issues
+        // Using only characters from ALLOWED_CHARS: % @ # $ O X
+        let chars_with_percent = vec![b'%', b'%', b'%', b'@', b'#', b'%', b'$', b'%', b'O'];
+        let individual = Individual::new(chars_with_percent);
+        
+        // Verify all characters are valid
+        for &c in &individual.chars {
+            assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
+        }
+        
+        // Test that converting to string works properly  
+        let ascii_gen = crate::ascii_generator::AsciiGenerator::new();
+        let result = ascii_gen.individual_to_string(&individual, 3);
+        
+        // Should contain the actual % characters, not format specifiers
+        assert!(result.contains('%'), "Result should contain percent characters");
+        println!("ASCII art with % characters: '{}'", result);
     }
     
     #[test]
@@ -586,9 +684,9 @@ mod tests {
         assert!(random_count <= 10); // At most 10% should be random
         assert_eq!(o_count + random_count, 100);
         
-        // All random characters should be valid ASCII
+        // All characters should be from allowed character set
         for &c in &individual.chars {
-            assert!(c >= 0x20 && c <= 0x7F);
+            assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
         }
     }
     

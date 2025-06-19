@@ -211,6 +211,9 @@ impl NcursesUI {
     /// Draw ASCII art if provided
     fn draw_ascii_art(&self, art: &str) {
         let y_start = 11;
+        let mut max_y = 0;
+        let mut max_x = 0;
+        getmaxyx(stdscr(), &mut max_y, &mut max_x);
         
         attron(COLOR_PAIR(4));
         mvprintw(y_start, 0, "Current Best ASCII Art:");
@@ -218,7 +221,18 @@ impl NcursesUI {
         
         attron(COLOR_PAIR(5));
         for (i, line) in art.lines().enumerate() {
-            mvprintw(y_start + 2 + i as i32, 0, line);
+            let y_pos = y_start + 2 + i as i32;
+            // Only draw if we have space and don't overlap with footer
+            if y_pos < max_y - 3 {
+                // Truncate line if it's too long for the screen
+                let display_line = if line.len() > (max_x - 1) as usize {
+                    &line[..(max_x - 1) as usize]
+                } else {
+                    line
+                };
+                mv(y_pos, 0);
+                addstr(display_line);
+            }
         }
         attroff(COLOR_PAIR(5));
     }
