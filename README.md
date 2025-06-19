@@ -156,16 +156,14 @@ A simple 50x50 pixel image with geometric shapes.
 
 ### Generated ASCII Art (20x10 characters)
 ```
-:>-fFu?ER`~O_=6O.UR|
-9o#X~<a]/S`P^5x#w.a$
-1_B=&2oours}d/+PVT*%
-P)IHuV(80$3i3vLRTXA
-hWGRTl^h~p)h/^AI$lYi
-ZQe 8p9Bhd;vr/xdhu)D
-g@v9 Y1C0Ip&30G!C>e
-CZVr<B9og,?!5NH\l>ec
-jp{S=_E@[x8rksuF@uEL
-l3F8aS%e:~QUj6W{KU12
+      |#~X$
+    ~8A&} @
+       @- o
+     @o    =W[
+     ([      #{
+     @@[     \$
+      <[#M=#MAx?(
+      M#wM[A&=[
 ```
 
 ### Fitness Evolution with Time-Based Progress
