@@ -18,9 +18,25 @@ pub struct Individual {
 impl Individual {
     /// Creates a new individual with random ASCII characters
     pub fn new_random(size: usize) -> Self {
+        Self::new_random_with_background_prob(size, 0.0) // Default to no background bias
+    }
+    
+    /// Creates a new individual with random ASCII characters using background probability
+    pub fn new_random_with_background_prob(size: usize, background_prob: f64) -> Self {
         let mut rng = thread_rng();
         let chars: Vec<u8> = (0..size)
-            .map(|_| ALLOWED_CHARS[rng.gen_range(0..ALLOWED_CHARS.len())])
+            .map(|_| {
+                if rng.gen::<f64>() < background_prob {
+                    b' ' // Space character for background
+                } else {
+                    // Choose from non-space characters
+                    let non_space_chars: Vec<u8> = ALLOWED_CHARS.iter()
+                        .filter(|&&c| c != b' ')
+                        .copied()
+                        .collect();
+                    non_space_chars[rng.gen_range(0..non_space_chars.len())]
+                }
+            })
             .collect();
         
         Self {
@@ -84,11 +100,25 @@ impl Individual {
     
     /// Performs mutation on the individual
     pub fn mutate(&mut self, mutation_rate: f64) {
+        self.mutate_with_background_prob(mutation_rate, 0.0); // Default to no background bias
+    }
+    
+    /// Performs mutation on the individual using background probability
+    pub fn mutate_with_background_prob(&mut self, mutation_rate: f64, background_prob: f64) {
         let mut rng = thread_rng();
         
         for char in &mut self.chars {
             if rng.gen::<f64>() < mutation_rate {
-                *char = ALLOWED_CHARS[rng.gen_range(0..ALLOWED_CHARS.len())];
+                if rng.gen::<f64>() < background_prob {
+                    *char = b' '; // Space character for background
+                } else {
+                    // Choose from non-space characters
+                    let non_space_chars: Vec<u8> = ALLOWED_CHARS.iter()
+                        .filter(|&&c| c != b' ')
+                        .copied()
+                        .collect();
+                    *char = non_space_chars[rng.gen_range(0..non_space_chars.len())];
+                }
             }
         }
     }
@@ -104,6 +134,7 @@ pub struct GeneticAlgorithm<'a> {
     target_image: &'a ImageBuffer<Luma<u8>, Vec<u8>>,
     total_non_background_pixels: f64,
     background_threshold: u8,
+    background_prob: f64,
     mutation_rate: f64,
     crossover_rate: f64,
     elite_size: usize,
@@ -124,21 +155,26 @@ impl<'a> GeneticAlgorithm<'a> {
         white_background: bool,
     ) -> Self {
         let individual_size = (width * height) as usize;
-        let population: Vec<Individual> = (0..population_size)
-            .map(|_| {
-                match init_char {
-                    Some(ch) => Individual::new_with_init_char(individual_size, ch),
-                    None => Individual::new_random(individual_size),
-                }
-            })
-            .collect();
-
+        
         // Calculate background threshold and count non-background pixels
         let background_threshold = if white_background { 200 } else { 50 }; // Threshold for what counts as "background"
         let total_non_background_pixels = Self::count_non_background_pixels(target_image, background_threshold, white_background);
         
-        println!("Background threshold: {}, Total non-background pixels: {}", 
-                 background_threshold, total_non_background_pixels);
+        // Calculate background probability for random initialization
+        let total_pixels = (target_image.width() * target_image.height()) as f64;
+        let background_prob = (total_pixels - total_non_background_pixels) / total_pixels;
+        
+        let population: Vec<Individual> = (0..population_size)
+            .map(|_| {
+                match init_char {
+                    Some(ch) => Individual::new_with_init_char(individual_size, ch),
+                    None => Individual::new_random_with_background_prob(individual_size, background_prob),
+                }
+            })
+            .collect();
+        
+        println!("Background threshold: {}, Total non-background pixels: {}, Background probability: {:.1}%", 
+                 background_threshold, total_non_background_pixels, background_prob * 100.0);
         
         // Set up thread pool for parallel processing
         // Only initialize if not already initialized (for testing compatibility)
@@ -162,6 +198,7 @@ impl<'a> GeneticAlgorithm<'a> {
             target_image,
             total_non_background_pixels,
             background_threshold,
+            background_prob,
             mutation_rate: 0.01,
             crossover_rate: 0.8,
             elite_size: population_size / 10, // Top 10% are elite
@@ -334,7 +371,7 @@ impl<'a> GeneticAlgorithm<'a> {
                     }
                 } else if ascii_is_lit {
                     // Step 11: Penalize when ASCII is lit but target is background
-                    score -= 0.05; // Small penalty for false positive
+                    score -= 0.01; // Small penalty for false positive
                     ascii_false_positive_count += 1;
                 }
             }
@@ -361,8 +398,8 @@ impl<'a> GeneticAlgorithm<'a> {
             
             let (mut child1, mut child2) = parent1.crossover(&parent2, self.crossover_rate);
             
-            child1.mutate(self.mutation_rate);
-            child2.mutate(self.mutation_rate);
+            child1.mutate_with_background_prob(self.mutation_rate, self.background_prob);
+            child2.mutate_with_background_prob(self.mutation_rate, self.background_prob);
             
             new_population.push(child1);
             if new_population.len() < self.population_size {
