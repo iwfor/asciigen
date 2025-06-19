@@ -25,6 +25,9 @@ struct Args {
     #[arg(short, long, default_value = "4", help = "Number of threads for parallel fitness evaluation")]
     jobs: usize,
     
+    #[arg(short = 'i', long, help = "Character to initialize art buffers with (95% of characters, 5% random)")]
+    init_char: Option<char>,
+    
     #[arg(short, long, help = "Output file path (optional)")]
     output: Option<PathBuf>,
 }
@@ -65,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &ascii_gen,
         &resized_bw,
         args.jobs,
+        args.init_char,
     );
     
     println!("Running genetic algorithm for {} generations...", args.generations);

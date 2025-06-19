@@ -26,6 +26,35 @@ impl Individual {
         }
     }
     
+    /// Creates a new individual with a specified initialization character
+    /// 95% of characters will be the init_char, 5% will be random
+    pub fn new_with_init_char(size: usize, init_char: char) -> Self {
+        let mut rng = thread_rng();
+        let init_byte = init_char as u8;
+        
+        // Ensure the init_char is in valid ASCII range
+        let init_byte = if init_byte >= 0x20 && init_byte <= 0x7F {
+            init_byte
+        } else {
+            b' ' // Default to space if invalid character
+        };
+        
+        let chars: Vec<u8> = (0..size)
+            .map(|_| {
+                if rng.gen::<f64>() < 0.05 { // 5% chance for random character
+                    rng.gen_range(0x20..=0x7F)
+                } else {
+                    init_byte
+                }
+            })
+            .collect();
+        
+        Self {
+            chars,
+            fitness: 0.0,
+        }
+    }
+    
     /// Creates a new individual from existing character data
     pub fn new(chars: Vec<u8>) -> Self {
         Self {
@@ -85,10 +114,16 @@ impl<'a> GeneticAlgorithm<'a> {
         ascii_generator: &'a AsciiGenerator,
         target_image: &'a ImageBuffer<Luma<u8>, Vec<u8>>,
         thread_count: usize,
+        init_char: Option<char>,
     ) -> Self {
         let individual_size = (width * height) as usize;
         let population: Vec<Individual> = (0..population_size)
-            .map(|_| Individual::new_random(individual_size))
+            .map(|_| {
+                match init_char {
+                    Some(ch) => Individual::new_with_init_char(individual_size, ch),
+                    None => Individual::new_random(individual_size),
+                }
+            })
             .collect();
         
         // Set up thread pool for parallel processing
@@ -327,7 +362,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2);
+        let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2, None);
         
         assert_eq!(ga.population.len(), 20);
         assert_eq!(ga.population_size, 20);
@@ -346,7 +381,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1);
+        let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None);
         let individual = Individual::new(vec![b' ', b' ', b' ', b' ']); // All spaces
         
         let fitness = ga.calculate_fitness(&individual);
@@ -358,7 +393,7 @@ mod tests {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
         
-        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1);
+        let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None);
         
         // Set different fitness values
         ga.population[0].fitness = 0.9;
@@ -366,5 +401,42 @@ mod tests {
         
         let selected = ga.tournament_selection();
         assert!(selected.fitness >= 0.0);
+    }
+    
+    #[test]
+    fn test_individual_with_init_char() {
+        let individual = Individual::new_with_init_char(100, 'A');
+        assert_eq!(individual.chars.len(), 100);
+        
+        // Count how many characters are 'A' (should be around 95%)
+        let a_count = individual.chars.iter().filter(|&&c| c == b'A').count();
+        let random_count = individual.chars.iter().filter(|&&c| c != b'A').count();
+        
+        // Should be approximately 95% 'A' and 5% random (with some variance)
+        assert!(a_count >= 90); // At least 90% should be 'A'
+        assert!(random_count <= 10); // At most 10% should be random
+        assert_eq!(a_count + random_count, 100);
+        
+        // All random characters should be valid ASCII
+        for &c in &individual.chars {
+            assert!(c >= 0x20 && c <= 0x7F);
+        }
+    }
+    
+    #[test]
+    fn test_genetic_algorithm_with_init_char() {
+        let ascii_gen = create_test_ascii_generator();
+        let target_img = create_test_target_image();
+        
+        let ga = GeneticAlgorithm::new(3, 3, 5, &ascii_gen, &target_img, 1, Some('#'));
+        
+        // Check that all individuals in population use the init character
+        for individual in &ga.population {
+            let hash_count = individual.chars.iter().filter(|&&c| c == b'#').count();
+            let total_count = individual.chars.len();
+            
+            // Should be around 95% '#' characters
+            assert!(hash_count >= (total_count * 90) / 100); // At least 90%
+        }
     }
 }
