@@ -43,7 +43,7 @@ cargo build --release
 # Generate ASCII art with 20 character width
 cargo run -- image.jpg --width 20
 
-# Generate ASCII art with 15 character height  
+# Generate ASCII art with 15 character height
 cargo run -- image.jpg --height 15
 
 # Run for 50 generations with 8 threads
@@ -78,7 +78,7 @@ Arguments:
 
 Options:
   -w, --width <WIDTH>              Width in characters
-  -H, --height <HEIGHT>            Height in characters  
+  -H, --height <HEIGHT>            Height in characters
   -g, --generations <GENERATIONS>  Number of generations [default: 100]
   -j, --jobs <JOBS>                Number of threads for parallel fitness evaluation [default: 4]
   -p, --population <SIZE>          Population size (20-1000) [default: 80]
@@ -136,7 +136,7 @@ Both debug images are the same dimensions, allowing pixel-perfect comparison of 
 ### Technical Implementation
 
 - **Image Processing**: Loads, resizes, and converts images to grayscale with proper dimension matching
-- **Font Rendering**: Renders ASCII characters using TrueType fonts with proper baseline alignment  
+- **Font Rendering**: Renders ASCII characters using TrueType fonts with proper baseline alignment
 - **Parallel Fitness**: Uses Rayon for concurrent fitness evaluations across multiple threads
 - **Character Set**: Uses optimized 46-character set for better ASCII art quality
 - **Smart Fitness Function**: Non-background pixel focused evaluation with false-positive penalties
@@ -159,7 +159,7 @@ The application shows significant performance improvements with multi-threading 
 
 **Population Size Guidelines:**
 - **Small systems (1-4 cores)**: 40-80 population
-- **Mid-range systems (6-8 cores)**: 80-150 population  
+- **Mid-range systems (6-8 cores)**: 80-150 population
 - **High-end systems (12+ cores)**: 200-400 population
 - **Workstations (24+ cores)**: 400-800 population
 

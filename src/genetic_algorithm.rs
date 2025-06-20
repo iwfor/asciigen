@@ -21,7 +21,7 @@ impl Individual {
     pub fn new_random(size: usize) -> Self {
         Self::new_random_with_background_prob(size, 0.0)
     }
-    
+
     /// Creates a new individual with random ASCII characters using background probability
     pub fn new_random_with_background_prob(size: usize, background_prob: f64) -> Self {
         let mut rng = thread_rng();
@@ -39,26 +39,26 @@ impl Individual {
                 }
             })
             .collect();
-        
+
         Self {
             chars,
             fitness: 0.0,
         }
     }
-    
+
     /// Creates a new individual with a specified initialization character
     /// 95% of characters will be the init_char, 5% will be random
     pub fn new_with_init_char(size: usize, init_char: char) -> Self {
         let mut rng = thread_rng();
         let init_byte = init_char as u8;
-        
+
         // Ensure the init_char is in the allowed character set
         let init_byte = if ALLOWED_CHARS.contains(&init_byte) {
             init_byte
         } else {
             b' ' // Default to space if invalid character
         };
-        
+
         let chars: Vec<u8> = (0..size)
             .map(|_| {
                 if rng.gen::<f64>() < 0.05 { // 5% chance for random character
@@ -68,13 +68,13 @@ impl Individual {
                 }
             })
             .collect();
-        
+
         Self {
             chars,
             fitness: 0.0,
         }
     }
-    
+
     /// Creates a new individual from existing character data
     pub fn new(chars: Vec<u8>) -> Self {
         Self {
@@ -82,33 +82,33 @@ impl Individual {
             fitness: 0.0,
         }
     }
-    
+
     /// Performs uniform crossover with another individual
     pub fn crossover(&self, other: &Individual, crossover_rate: f64) -> (Individual, Individual) {
         let mut rng = thread_rng();
         let mut child1_chars = self.chars.clone();
         let mut child2_chars = other.chars.clone();
-        
+
         for i in 0..self.chars.len().min(other.chars.len()) {
             if rng.gen::<f64>() < crossover_rate {
                 child1_chars[i] = other.chars[i];
                 child2_chars[i] = self.chars[i];
             }
         }
-        
+
         (Individual::new(child1_chars), Individual::new(child2_chars))
     }
-    
+
     /// Performs mutation on the individual (for tests)
     #[cfg(test)]
     pub fn mutate(&mut self, mutation_rate: f64) {
         self.mutate_with_background_prob(mutation_rate, 0.0);
     }
-    
+
     /// Performs mutation on the individual using background probability
     pub fn mutate_with_background_prob(&mut self, mutation_rate: f64, background_prob: f64) {
         let mut rng = thread_rng();
-        
+
         for char in &mut self.chars {
             if rng.gen::<f64>() < mutation_rate {
                 if rng.gen::<f64>() < background_prob {
@@ -156,15 +156,15 @@ impl<'a> GeneticAlgorithm<'a> {
         white_background: bool,
     ) -> Self {
         let individual_size = (width * height) as usize;
-        
+
         // Calculate background threshold and count non-background pixels
         let background_threshold = if white_background { 200 } else { 50 }; // Threshold for what counts as "background"
         let total_non_background_pixels = Self::count_non_background_pixels(target_image, background_threshold, white_background);
-        
+
         // Calculate background probability for random initialization
         let total_pixels = (target_image.width() * target_image.height()) as f64;
         let background_prob = (total_pixels - total_non_background_pixels) / total_pixels;
-        
+
         let population: Vec<Individual> = (0..population_size)
             .map(|_| {
                 match init_char {
@@ -173,10 +173,10 @@ impl<'a> GeneticAlgorithm<'a> {
                 }
             })
             .collect();
-        
-        println!("Background threshold: {}, Total non-background pixels: {}, Background probability: {:.1}%", 
+
+        println!("Background threshold: {}, Total non-background pixels: {}, Background probability: {:.1}%",
                  background_threshold, total_non_background_pixels, background_prob * 100.0);
-        
+
         // Set up thread pool for parallel processing
         // Only initialize if not already initialized (for testing compatibility)
         if let Err(e) = rayon::ThreadPoolBuilder::new()
@@ -189,7 +189,7 @@ impl<'a> GeneticAlgorithm<'a> {
                 panic!("Failed to initialize thread pool: {:?}", e);
             }
         }
-        
+
         Self {
             population,
             population_size,
@@ -206,7 +206,7 @@ impl<'a> GeneticAlgorithm<'a> {
             thread_count,
         }
     }
-    
+
     /// Counts pixels that are not background color in the target image
     fn count_non_background_pixels(
         target_image: &ImageBuffer<Luma<u8>, Vec<u8>>,
@@ -214,10 +214,10 @@ impl<'a> GeneticAlgorithm<'a> {
         white_background: bool,
     ) -> f64 {
         let mut count = 0;
-        
+
         for pixel in target_image.pixels() {
             let intensity = pixel[0];
-            
+
             // For black background mode: non-background pixels are bright (> threshold)
             // For white background mode: non-background pixels are dark (< threshold)
             let is_non_background = if white_background {
@@ -225,48 +225,55 @@ impl<'a> GeneticAlgorithm<'a> {
             } else {
                 intensity > background_threshold
             };
-            
+
             if is_non_background {
                 count += 1;
             }
         }
-        
+
         count as f64
     }
-    
+
     /// Runs the genetic algorithm for the specified number of generations with optional UI callback
-    pub fn evolve<F>(&mut self, generations: u32, verbose: bool, status_interval: f64, mut ui_callback: Option<F>) -> (Individual, f64) 
-    where 
+    /// If generations is 0, runs continuously until user interrupts via callback
+    pub fn evolve<F>(&mut self, generations: u32, verbose: bool, status_interval: f64, mut ui_callback: Option<F>) -> (Individual, f64)
+    where
         F: FnMut(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool,
     {
         use std::time::{Duration, Instant};
-        
+
         let start_time = Instant::now();
         let mut last_update = start_time;
         let update_interval = Duration::from_secs_f64(status_interval);
-        
-        for generation in 0..generations {
+        let continuous_mode = generations == 0;
+
+        let mut generation = 0u32;
+        loop {
+            // Check if we should stop (either reached generation limit or continuous mode interrupted)
+            if !continuous_mode && generation >= generations {
+                break;
+            }
             self.evaluate_population();
-            
+
             let now = Instant::now();
             if now.duration_since(last_update) >= update_interval {
                 let best_fitness = self.population[0].fitness;
                 let elapsed = now.duration_since(start_time).as_secs_f64();
-                
+
                 // Prepare ASCII art for callback if verbose or UI callback exists
                 let ascii_art = if verbose || ui_callback.is_some() {
                     Some(self.ascii_generator.individual_to_string(&self.population[0], self.width))
                 } else {
                     None
                 };
-                
+
                 // Call UI callback if provided
                 if let Some(ref mut callback) = ui_callback {
                     let should_continue = callback(
-                        generation, 
-                        generations, 
-                        best_fitness, 
-                        elapsed, 
+                        generation,
+                        generations,
+                        best_fitness,
+                        elapsed,
                         self.population_size,
                         self.thread_count,
                         self.width,
@@ -279,32 +286,42 @@ impl<'a> GeneticAlgorithm<'a> {
                     }
                 } else {
                     // Fallback to console output
-                    println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s)", 
-                             generation, best_fitness * 100.0, elapsed);
-                    
+                    if continuous_mode {
+                        println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s) [Continuous mode - press Ctrl+C to stop]",
+                                 generation, best_fitness * 100.0, elapsed);
+                    } else {
+                        println!("Generation {}: Best fitness = {:.2}% (elapsed: {:.1}s)",
+                                 generation, best_fitness * 100.0, elapsed);
+                    }
+
                     if verbose {
                         if let Some(ref art) = ascii_art {
                             println!("Current best ASCII art:\n{}\n", art);
                         }
                     }
                 }
-                
+
                 last_update = now;
             }
-            
-            if generation < generations - 1 {
-                self.create_new_generation();
-            }
+
+            // Always create new generation unless we're stopping
+            self.create_new_generation();
+            generation += 1;
         }
-        
+
         self.evaluate_population();
         let total_elapsed = Instant::now().duration_since(start_time).as_secs_f64();
-        println!("Final generation {}: Best fitness = {:.2}% (total time: {:.1}s)", 
-                 generations - 1, self.population[0].fitness * 100.0, total_elapsed);
-        
+        if continuous_mode {
+            println!("Final generation {}: Best fitness = {:.2}% (total time: {:.1}s)",
+                     generation - 1, self.population[0].fitness * 100.0, total_elapsed);
+        } else {
+            println!("Final generation {}: Best fitness = {:.2}% (total time: {:.1}s)",
+                     generations - 1, self.population[0].fitness * 100.0, total_elapsed);
+        }
+
         (self.population[0].clone(), total_elapsed)
     }
-    
+
     /// Evaluates the fitness of all individuals in the population using parallel processing
     fn evaluate_population(&mut self) {
         // Clone chars to avoid borrowing issues and prepare for parallel processing
@@ -312,13 +329,13 @@ impl<'a> GeneticAlgorithm<'a> {
             .iter()
             .map(|individual| individual.chars.clone())
             .collect();
-        
+
         // Create Arc references for thread-safe sharing
         let ascii_gen = Arc::new(self.ascii_generator);
         let target_img = Arc::new(self.target_image.clone());
         let width = self.width;
         let height = self.height;
-        
+
         // Calculate fitness in parallel
         let total_non_bg = self.total_non_background_pixels;
         let bg_threshold = self.background_threshold;
@@ -326,87 +343,87 @@ impl<'a> GeneticAlgorithm<'a> {
             .par_iter()
             .map(|chars| {
                 Self::calculate_fitness_for_chars_static(
-                    chars, 
-                    &ascii_gen, 
-                    &target_img, 
-                    width, 
+                    chars,
+                    &ascii_gen,
+                    &target_img,
+                    width,
                     height,
                     total_non_bg,
                     bg_threshold
                 )
             })
             .collect();
-        
+
         // Update fitness values
         for (individual, fitness) in self.population.iter_mut().zip(fitness_values.iter()) {
             individual.fitness = *fitness;
         }
-        
+
         // Sort population by fitness (descending)
         self.population.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap_or(Ordering::Equal));
     }
-    
+
     /// Calculates fitness as percentage of matching pixels between ASCII art and target image
     #[cfg(test)]
     fn calculate_fitness(&self, individual: &Individual) -> f64 {
         self.calculate_fitness_for_chars(&individual.chars)
     }
-    
+
     /// Calculates fitness for a given character array
     #[cfg(test)]
     fn calculate_fitness_for_chars(&self, chars: &[u8]) -> f64 {
         Self::calculate_fitness_for_chars_static(
-            chars, 
-            &Arc::new(self.ascii_generator), 
-            &Arc::new(self.target_image.clone()), 
-            self.width, 
+            chars,
+            &Arc::new(self.ascii_generator),
+            &Arc::new(self.target_image.clone()),
+            self.width,
             self.height,
             self.total_non_background_pixels,
             self.background_threshold
         )
     }
-    
+
     /// Static version of fitness calculation for parallel processing
     fn calculate_fitness_for_chars_static(
-        chars: &[u8], 
-        ascii_generator: &Arc<&AsciiGenerator>, 
-        target_image: &Arc<ImageBuffer<Luma<u8>, Vec<u8>>>, 
-        width: u32, 
+        chars: &[u8],
+        ascii_generator: &Arc<&AsciiGenerator>,
+        target_image: &Arc<ImageBuffer<Luma<u8>, Vec<u8>>>,
+        width: u32,
         height: u32,
         total_non_background_pixels: f64,
         background_threshold: u8
     ) -> f64 {
         // Step 1: Generate ASCII art image from the character array
         let ascii_image = ascii_generator.generate_ascii_image(chars, width, height);
-        
+
         // Step 2: Handle edge case of no non-background pixels to compare
         if total_non_background_pixels == 0.0 {
             return 0.0;
         }
-        
+
         // Step 3: Find the overlapping dimensions to handle any size mismatches
         let min_width = ascii_image.width().min(target_image.width());
         let min_height = ascii_image.height().min(target_image.height());
-        
+
         // Step 4: Calculate fitness based on non-background pixel comparison
         let mut score = 0.0;
-        
+
         // Step 5: Compare every pixel in both images
         for y in 0..min_height {
             for x in 0..min_width {
                 // Step 6: Extract grayscale values (0-255) from both images
                 let ascii_pixel = ascii_image.get_pixel(x, y)[0];
                 let target_pixel = target_image.get_pixel(x, y)[0];
-                
+
                 // Step 7: Determine if pixels are "lit" (non-background)
                 let ascii_is_lit = ascii_pixel > background_threshold;
                 let target_is_lit = target_pixel > background_threshold;
-                
+
                 // Step 8: Only score based on meaningful pixels (target non-background)
                 if target_is_lit {
                     // Step 9: Calculate absolute difference between pixel intensities
                     let diff = (ascii_pixel as i32 - target_pixel as i32).abs();
-                    
+
                     // Step 10: Award points for close matches within tolerance
                     if diff < 30 { // Tolerance of 30 out of 255 levels
                         score += 1.0;
@@ -417,54 +434,54 @@ impl<'a> GeneticAlgorithm<'a> {
                 }
             }
         }
-        
+
         // Step 12: Return fitness as percentage based on non-background pixels
         // Clamp to 0.0 minimum to avoid negative fitness
         (score / total_non_background_pixels).max(0.0)
     }
-    
+
     /// Creates a new generation using selection, crossover, and mutation
     fn create_new_generation(&mut self) {
         let mut new_population = Vec::with_capacity(self.population_size);
-        
+
         // Keep elite individuals
         for i in 0..self.elite_size {
             new_population.push(self.population[i].clone());
         }
-        
+
         // Generate offspring to fill the rest of the population
         while new_population.len() < self.population_size {
             let parent1 = self.tournament_selection();
             let parent2 = self.tournament_selection();
-            
+
             let (mut child1, mut child2) = parent1.crossover(&parent2, self.crossover_rate);
-            
+
             child1.mutate_with_background_prob(self.mutation_rate, self.background_prob);
             child2.mutate_with_background_prob(self.mutation_rate, self.background_prob);
-            
+
             new_population.push(child1);
             if new_population.len() < self.population_size {
                 new_population.push(child2);
             }
         }
-        
+
         self.population = new_population;
     }
-    
+
     /// Performs tournament selection to choose a parent for reproduction
     fn tournament_selection(&self) -> Individual {
         let mut rng = thread_rng();
         let tournament_size = 3;
-        
+
         let mut best_individual = &self.population[rng.gen_range(0..self.population.len())];
-        
+
         for _ in 1..tournament_size {
             let candidate = &self.population[rng.gen_range(0..self.population.len())];
             if candidate.fitness > best_individual.fitness {
                 best_individual = candidate;
             }
         }
-        
+
         best_individual.clone()
     }
 }
@@ -477,7 +494,7 @@ mod tests {
     fn create_test_ascii_generator() -> AsciiGenerator {
         AsciiGenerator::new()
     }
-    
+
     fn create_test_target_image() -> ImageBuffer<Luma<u8>, Vec<u8>> {
         ImageBuffer::new(20, 20)
     }
@@ -487,81 +504,81 @@ mod tests {
         let individual = Individual::new_random(100);
         assert_eq!(individual.chars.len(), 100);
         assert_eq!(individual.fitness, 0.0);
-        
+
         // Check that all characters are in valid ASCII range
         for &ch in &individual.chars {
             assert!(ch >= 0x20 && ch <= 0x7F);
         }
     }
-    
+
     #[test]
     fn test_individual_crossover() {
         let parent1 = Individual::new(vec![b'A'; 10]);
         let parent2 = Individual::new(vec![b'B'; 10]);
-        
+
         let (child1, child2) = parent1.crossover(&parent2, 1.0); // 100% crossover rate
-        
+
         assert_eq!(child1.chars.len(), 10);
         assert_eq!(child2.chars.len(), 10);
-        
+
         // With 100% crossover rate, children should be swapped
         assert_eq!(child1.chars, vec![b'B'; 10]);
         assert_eq!(child2.chars, vec![b'A'; 10]);
     }
-    
+
     #[test]
     fn test_individual_mutation() {
         let mut individual = Individual::new(vec![b'A'; 100]);
         let original = individual.chars.clone();
-        
+
         individual.mutate(1.0); // 100% mutation rate
-        
+
         // With 100% mutation rate, all characters should be different
         assert_ne!(individual.chars, original);
-        
+
         // But they should still be from allowed character set
         for &ch in &individual.chars {
             assert!(ALLOWED_CHARS.contains(&ch), "Character {} (0x{:02X}) not in allowed character set", ch as char, ch);
         }
     }
-    
+
     #[test]
     fn test_individual_random_creation_chars_valid() {
         for _ in 0..10 {  // Run multiple times to catch any random issues
             let individual = Individual::new_random(50);
-            
+
             // All characters should be from allowed character set
             for &c in &individual.chars {
                 assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
             }
         }
     }
-    
-    #[test] 
+
+    #[test]
     fn test_individual_background_prob_chars_valid() {
         for _ in 0..10 {  // Run multiple times to catch any random issues
             let individual = Individual::new_random_with_background_prob(50, 0.5);
-            
+
             // All characters should be from allowed character set
             for &c in &individual.chars {
                 assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
             }
         }
     }
-    
+
     #[test]
     fn test_mutation_with_background_prob_chars_valid() {
         for _ in 0..10 {  // Run multiple times to catch any random issues
             let mut individual = Individual::new(vec![b' '; 50]);
             individual.mutate_with_background_prob(1.0, 0.3); // 100% mutation rate
-            
+
             // All characters should be from allowed character set
             for &c in &individual.chars {
                 assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
             }
         }
     }
-    
+
     #[test]
     fn test_allowed_chars_content() {
         // Print out the allowed character set to debug
@@ -570,29 +587,29 @@ mod tests {
         for (i, &c) in ALLOWED_CHARS.iter().enumerate() {
             println!("  [{}]: {} (0x{:02X})", i, c as char, c);
         }
-        
+
         // Check for unexpected digits
         let digits: Vec<u8> = ALLOWED_CHARS.iter()
             .filter(|&&c| c >= b'0' && c <= b'9')
             .copied()
             .collect();
         println!("Digits in ALLOWED_CHARS: {:?}", digits.iter().map(|&c| c as char).collect::<Vec<_>>());
-        
+
         // Only '8' should be present
         assert_eq!(digits, vec![b'8'], "Only digit '8' should be in allowed characters, found: {:?}", digits.iter().map(|&c| c as char).collect::<Vec<_>>());
     }
-    
+
     #[test]
     fn test_debug_character_generation_stress() {
         // Generate many individuals and check for any invalid characters
         for trial in 0..100 {
             let individual = Individual::new_random_with_background_prob(100, 0.5);
-            
+
             for (pos, &c) in individual.chars.iter().enumerate() {
                 if !ALLOWED_CHARS.contains(&c) {
                     panic!("Trial {}, Position {}: Invalid character {} (0x{:02X}) found!", trial, pos, c as char, c);
                 }
-                
+
                 // Specifically check for digits other than '8'
                 if (c >= b'0' && c <= b'9') && c != b'8' {
                     panic!("Trial {}, Position {}: Unexpected digit {} found!", trial, pos, c as char);
@@ -601,107 +618,107 @@ mod tests {
         }
         println!("Successfully tested 100 random individuals with no invalid characters");
     }
-    
+
     #[test]
     fn test_ascii_art_with_percent_characters() {
         // Create an individual with % characters that could cause format string issues
         // Using only characters from ALLOWED_CHARS: % @ # $ O X
         let chars_with_percent = vec![b'%', b'%', b'%', b'@', b'#', b'%', b'$', b'%', b'O'];
         let individual = Individual::new(chars_with_percent);
-        
+
         // Verify all characters are valid
         for &c in &individual.chars {
             assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
         }
-        
-        // Test that converting to string works properly  
+
+        // Test that converting to string works properly
         let ascii_gen = crate::ascii_generator::AsciiGenerator::new();
         let result = ascii_gen.individual_to_string(&individual, 3);
-        
+
         // Should contain the actual % characters, not format specifiers
         assert!(result.contains('%'), "Result should contain percent characters");
         println!("ASCII art with % characters: '{}'", result);
     }
-    
+
     #[test]
     fn test_genetic_algorithm_creation() {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
-        
+
         let ga = GeneticAlgorithm::new(10, 10, 20, &ascii_gen, &target_img, 2, None, false);
-        
+
         assert_eq!(ga.population.len(), 20);
         assert_eq!(ga.population_size, 20);
         assert_eq!(ga.width, 10);
         assert_eq!(ga.height, 10);
         assert_eq!(ga.thread_count, 2);
-        
+
         // Check that all individuals have correct size
         for individual in &ga.population {
             assert_eq!(individual.chars.len(), 100); // 10 * 10
         }
     }
-    
+
     #[test]
     fn test_fitness_calculation() {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
-        
+
         let ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None, false);
         let individual = Individual::new(vec![b' ', b' ', b' ', b' ']); // All spaces
-        
+
         let fitness = ga.calculate_fitness(&individual);
         assert!(fitness >= 0.0 && fitness <= 1.0);
     }
-    
+
     #[test]
     fn test_tournament_selection() {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
-        
+
         let mut ga = GeneticAlgorithm::new(2, 2, 10, &ascii_gen, &target_img, 1, None, false);
-        
+
         // Set different fitness values
         ga.population[0].fitness = 0.9;
         ga.population[1].fitness = 0.1;
-        
+
         let selected = ga.tournament_selection();
         assert!(selected.fitness >= 0.0);
     }
-    
+
     #[test]
     fn test_individual_with_init_char() {
         // Use 'O' which is in our allowed character set
         let individual = Individual::new_with_init_char(100, 'O');
         assert_eq!(individual.chars.len(), 100);
-        
+
         // Count how many characters are 'O' (should be around 95%)
         let o_count = individual.chars.iter().filter(|&&c| c == b'O').count();
         let random_count = individual.chars.iter().filter(|&&c| c != b'O').count();
-        
+
         // Should be approximately 95% 'O' and 5% random (with some variance)
         assert!(o_count >= 90); // At least 90% should be 'O'
         assert!(random_count <= 10); // At most 10% should be random
         assert_eq!(o_count + random_count, 100);
-        
+
         // All characters should be from allowed character set
         for &c in &individual.chars {
             assert!(ALLOWED_CHARS.contains(&c), "Character {} (0x{:02X}) not in allowed character set", c as char, c);
         }
     }
-    
+
     #[test]
     fn test_genetic_algorithm_with_init_char() {
         let ascii_gen = create_test_ascii_generator();
         let target_img = create_test_target_image();
-        
+
         let ga = GeneticAlgorithm::new(3, 3, 5, &ascii_gen, &target_img, 1, Some('#'), false);
-        
+
         // Check that all individuals in population use the init character
         for individual in &ga.population {
             let hash_count = individual.chars.iter().filter(|&&c| c == b'#').count();
             let total_count = individual.chars.len();
-            
+
             // Should be around 95% '#' characters, but with small sample size (9 chars)
             // we need to allow for statistical variation. Expect at least 70%.
             assert!(hash_count >= (total_count * 70) / 100); // At least 70%

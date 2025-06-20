@@ -101,7 +101,7 @@ Arguments:
 Options:
   -w, --width <WIDTH>              Width in characters
   -H, --height <HEIGHT>            Height in characters
-  -g, --generations <GENERATIONS>  Number of generations [default: 100]
+  -g, --generations <GENERATIONS>  Number of generations (0 = continuous mode) [default: 100]
   -j, --jobs <JOBS>                Number of threads [default: 4]
   -p, --population <SIZE>          Population size (20-1000) [default: 80]
   -i, --init-char <INIT_CHAR>      Initialization character (95% + 5% random)
@@ -132,6 +132,22 @@ By default, ASCIIGen uses an interactive ncurses-based text user interface that 
 The ncurses UI provides a much more engaging and informative experience compared to simple console output.
 
 Use `--no-ui` to disable the interactive interface and use traditional console output instead.
+
+### Continuous Mode
+
+When `--generations 0` is specified, ASCIIGen runs in continuous mode:
+
+- **Infinite Evolution**: Runs until manually stopped (press 'q' in UI or Ctrl+C in console)
+- **Fitness-Based Progress**: Progress bar shows current best fitness instead of generation progress
+- **No ETA Display**: Time estimates are hidden since there's no target endpoint
+- **Real-time Optimization**: Continues improving ASCII art indefinitely
+- **Interactive Control**: Essential for stopping the evolution when satisfied with results
+
+Continuous mode is ideal for:
+- Finding optimal results without predefined limits
+- Interactive experimentation with different fitness levels
+- Long-running optimization sessions
+- Exploring the maximum potential of the genetic algorithm
 
 ### Validation Rules
 - Must specify either width OR height (not both)
