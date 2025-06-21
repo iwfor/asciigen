@@ -176,16 +176,25 @@ Larger populations provide better genetic diversity and solution quality but req
 ### Input Image
 A simple 50x50 pixel image with geometric shapes.
 
-### Generated ASCII Art (20x10 characters)
+### Generated ASCII duck (40x20 characters after almost 3000 generations)
 ```
-      |#~X$
-    ~8A&} @
-       @- o
-     @o    =W[
-     ([      #{
-     @@[     \$
-      <[#M=#MAx?(
-      M#wM[A&=[
+
+               @+^$#]|
+          )88#@ #    O
+         =#O]@]|     X
+               O;   &#
+               @O   ]
+             88     $
+           8?         O#$
+          O,             O$[
+         &{ ]              #;
+         %[ ]               #
+          ] #&            O ~{
+          =@  $#| {     #} X@@
+            $@   $XO$O$X#O@$- #{
+             <@]             @@X@
+              }@|8###&OO$$#<~<"
+           #]#"-=& $#!&#
 ```
 
 ### Fitness Evolution with Time-Based Progress
