@@ -1,6 +1,7 @@
 mod image_processor;
 mod ascii_generator;
 mod genetic_algorithm;
+mod brute_force;
 mod ncurses_ui;
 
 use clap::Parser;
@@ -49,6 +50,9 @@ struct Args {
 
     #[arg(long, help = "Disable interactive ncurses UI and use console output instead")]
     no_ui: bool,
+
+    #[arg(short = 'b', long, help = "Use brute-force mode instead of genetic algorithm")]
+    brute_force: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -97,63 +101,121 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Post-processed input image size: {}x{}", resized_bw.width(), resized_bw.height());
 
-    let mut ga = genetic_algorithm::GeneticAlgorithm::new(
-        target_width,
-        target_height,
-        args.population,
-        &ascii_gen,
-        &resized_bw,
-        args.jobs,
-        args.init_char,
-        args.white_background,
-    );
+    let (best_individual, total_elapsed) = if args.brute_force {
+        // Use brute force mode
+        println!("Running brute force generation for {}x{} characters...", target_width, target_height);
+        
+        let bf_gen = brute_force::BruteForceGenerator::new(
+            target_width,
+            target_height,
+            &ascii_gen,
+            &resized_bw,
+            args.white_background,
+        );
 
-    if args.generations == 0 {
-        println!("Running genetic algorithm in continuous mode with population size {} (press 'q' in UI to stop)...", args.population);
-    } else {
-        println!("Running genetic algorithm for {} generations with population size {}...", args.generations, args.population);
-    }
+        if args.no_ui {
+            // Use console output for brute force
+            bf_gen.generate(args.verbose, None::<fn(u32, u32, f64, f64, u32, u32, Option<String>) -> bool>)
+        } else {
+            // Use ncurses UI for brute force
+            match ncurses_ui::NcursesUI::new() {
+                Ok(mut ui) => {
+                    let result = bf_gen.generate(args.verbose, Some(|position, total_positions, progress, elapsed_time, width, height, ascii_art| {
+                        let stats = ncurses_ui::UIStats {
+                            generation: position,
+                            total_generations: total_positions,
+                            best_fitness: progress,
+                            elapsed_time,
+                            population_size: 1, // Brute force doesn't use population
+                            thread_count: 1,    // Brute force is single-threaded
+                            width,
+                            height,
+                            ascii_art,
+                        };
 
-    let (best_individual, total_elapsed) = if args.no_ui {
-        // Use console output
-        ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
-    } else {
-        // Use ncurses UI
-        match ncurses_ui::NcursesUI::new() {
-            Ok(mut ui) => {
-                let result = ga.evolve(args.generations, args.verbose, args.status_interval, Some(|generation, total_generations, best_fitness, elapsed_time, population_size, thread_count, width, height, ascii_art| {
-                    let stats = ncurses_ui::UIStats {
-                        generation,
-                        total_generations,
-                        best_fitness,
-                        elapsed_time,
-                        population_size,
-                        thread_count,
-                        width,
-                        height,
-                        ascii_art,
-                    };
+                        ui.update(&stats);
 
-                    ui.update(&stats);
-
-                    // Check for user input
-                    if let Some(ch) = ui.check_input() {
-                        match ch {
-                            'q' | 'Q' => return false, // Quit
-                            _ => {}
+                        // Check for user input
+                        if let Some(ch) = ui.check_input() {
+                            match ch {
+                                'q' | 'Q' => return false, // Quit
+                                _ => {}
+                            }
                         }
-                    }
 
-                    true // Continue evolution
-                }));
+                        true // Continue generation
+                    }));
 
-                ui.show_message("Evolution complete! Press any key to continue...");
-                ui.check_input(); // Wait for key press
-                result
-            },
-            Err(e) => {
-                eprintln!("Failed to initialize ncurses UI: {}. Falling back to console output.", e);
-                ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
+                    ui.show_message("Brute force generation complete! Press any key to continue...");
+                    ui.check_input(); // Wait for key press
+                    result
+                },
+                Err(e) => {
+                    eprintln!("Failed to initialize ncurses UI: {}. Falling back to console output.", e);
+                    bf_gen.generate(args.verbose, None::<fn(u32, u32, f64, f64, u32, u32, Option<String>) -> bool>)
+                }
+            }
+        }
+    } else {
+        // Use genetic algorithm mode
+        let mut ga = genetic_algorithm::GeneticAlgorithm::new(
+            target_width,
+            target_height,
+            args.population,
+            &ascii_gen,
+            &resized_bw,
+            args.jobs,
+            args.init_char,
+            args.white_background,
+        );
+
+        if args.generations == 0 {
+            println!("Running genetic algorithm in continuous mode with population size {} (press 'q' in UI to stop)...", args.population);
+        } else {
+            println!("Running genetic algorithm for {} generations with population size {}...", args.generations, args.population);
+        }
+
+        if args.no_ui {
+            // Use console output
+            ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
+        } else {
+            // Use ncurses UI
+            match ncurses_ui::NcursesUI::new() {
+                Ok(mut ui) => {
+                    let result = ga.evolve(args.generations, args.verbose, args.status_interval, Some(|generation, total_generations, best_fitness, elapsed_time, population_size, thread_count, width, height, ascii_art| {
+                        let stats = ncurses_ui::UIStats {
+                            generation,
+                            total_generations,
+                            best_fitness,
+                            elapsed_time,
+                            population_size,
+                            thread_count,
+                            width,
+                            height,
+                            ascii_art,
+                        };
+
+                        ui.update(&stats);
+
+                        // Check for user input
+                        if let Some(ch) = ui.check_input() {
+                            match ch {
+                                'q' | 'Q' => return false, // Quit
+                                _ => {}
+                            }
+                        }
+
+                        true // Continue evolution
+                    }));
+
+                    ui.show_message("Evolution complete! Press any key to continue...");
+                    ui.check_input(); // Wait for key press
+                    result
+                },
+                Err(e) => {
+                    eprintln!("Failed to initialize ncurses UI: {}. Falling back to console output.", e);
+                    ga.evolve(args.generations, args.verbose, args.status_interval, None::<fn(u32, u32, f64, f64, usize, usize, u32, u32, Option<String>) -> bool>)
+                }
             }
         }
     };
@@ -163,7 +225,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Output ASCII image buffer size: {}x{}", output_ascii_image.width(), output_ascii_image.height());
 
     let ascii_art = ascii_gen.individual_to_string(&best_individual, target_width);
-    println!("\nBest ASCII art ({}x{} characters, fitness: {:.2}%, elapsed: {:.1}s):\n{}", target_width, target_height, best_individual.fitness * 100.0, total_elapsed, ascii_art);
+    let mode_str = if args.brute_force { "brute-force" } else { "genetic algorithm" };
+    println!("\nBest ASCII art ({}x{} characters, fitness: {:.2}%, mode: {}, elapsed: {:.1}s):\n{}", target_width, target_height, best_individual.fitness * 100.0, mode_str, total_elapsed, ascii_art);
 
     if let Some(output_path) = args.output {
         std::fs::write(&output_path, ascii_art)?;

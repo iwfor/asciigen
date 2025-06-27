@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 /// Limited character set for ASCII art generation
-const ALLOWED_CHARS: &[u8] = b" <>,./?\\|[]{}-_=+OX`~;:'\"!@#$%^&*()8";
+pub const ALLOWED_CHARS: &[u8] = b" <>,./?\\|[]{}-_=+OX`~;:'\"!@#$%^&*()8";
 
 /// Represents an individual in the genetic algorithm population
 #[derive(Clone, Debug)]
