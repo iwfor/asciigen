@@ -102,6 +102,12 @@ ASCIIGen is a Rust application that generates ASCII art from images using either
    - Same fitness function for direct performance and quality comparison
    - Compatible with all existing features (UI, debug, verbose modes)
 
+13. **Source Image Inversion**: Color inversion for negative images
+   - Inverts all pixel values (255 - pixel_value) before processing
+   - Useful for converting negative images or images with inverted brightness
+   - Applied during image preprocessing before fitness evaluation
+   - Compatible with both genetic algorithm and brute-force modes
+
 ## Command Line Interface
 
 ```bash
@@ -124,6 +130,7 @@ Options:
   -s, --status-interval <SECONDS>  Status update interval in seconds [default: 1.0]
       --no-ui                      Disable interactive ncurses UI and use console output instead
   -b, --brute-force                Use brute-force mode instead of genetic algorithm
+  -I, --invert-source              Invert source image colors (useful for negative images)
   -h, --help                       Print help
 ```
 
@@ -190,6 +197,7 @@ Brute-force mode is ideal for:
 - Debug and verbose modes can be used together for comprehensive analysis
 - Brute-force mode ignores population size, generations, and thread count parameters
 - Brute-force mode has O(positions × characters) complexity but optimized implementation provides excellent real-world performance
+- Source image inversion is applied before all other processing and affects both debug output and final results
 
 ## Dependencies
 
@@ -208,7 +216,7 @@ Brute-force mode is ideal for:
 ## Testing Strategy
 
 ### Unit Tests
-- **Image Processing**: Test loading, resizing, and grayscale conversion
+- **Image Processing**: Test loading, resizing, grayscale conversion, and inversion
 - **ASCII Generation**: Test character rendering and caching
 - **Genetic Algorithm**: Test individual creation, crossover, mutation, selection
 - **Brute Force**: Test character optimization, fitness calculation, and progress tracking
@@ -381,6 +389,7 @@ The project was built incrementally with these major milestones:
 8. Background color options for flexible output formatting
 9. Improved character rendering with proper baseline alignment
 10. Brute-force optimization mode for guaranteed optimal results
+11. Source image color inversion for negative images
 
 Each feature was implemented with full testing and maintains backward compatibility.
 
@@ -434,3 +443,10 @@ Each feature was implemented with full testing and maintains backward compatibil
 - Surprisingly fast performance: 40x25 grid (1000 characters) in ~0.7 seconds
 - Full integration with existing UI, debug, and verbose modes
 - Ideal for benchmarking genetic algorithm performance and research
+
+#### Source Image Color Inversion
+- Added `--invert-source` option for processing negative images
+- Inverts all pixel values (255 - original_value) during preprocessing
+- Useful for converting film negatives, inverted scans, or stylistic effects
+- Compatible with both genetic algorithm and brute-force modes
+- Applied before fitness calculation, affecting all processing and debug output

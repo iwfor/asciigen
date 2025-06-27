@@ -53,6 +53,9 @@ struct Args {
 
     #[arg(short = 'b', long, help = "Use brute-force mode instead of genetic algorithm")]
     brute_force: bool,
+
+    #[arg(short = 'I', long, help = "Invert source image colors (useful for negative images)")]
+    invert_source: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -97,8 +100,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Character dimensions: {}x{}", char_width, char_height);
     println!("Target pixel dimensions: {}x{}", target_pixel_width, target_pixel_height);
 
-    let resized_bw = processor.prepare_target_image(&original_img, target_pixel_width, target_pixel_height)?;
+    let resized_bw = processor.prepare_target_image_with_inversion(&original_img, target_pixel_width, target_pixel_height, args.invert_source)?;
 
+    if args.invert_source {
+        println!("Source image colors inverted");
+    }
     println!("Post-processed input image size: {}x{}", resized_bw.width(), resized_bw.height());
 
     let (best_individual, total_elapsed) = if args.brute_force {
